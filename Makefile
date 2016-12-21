@@ -13,7 +13,7 @@ INC_DIRS = $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 
-DOWNLOAD_FILES := $(shell find $(LIB_DIR) -d 1 -name *.download)
+DOWNLOAD_FILES := $(shell find $(LIB_DIR) -name *.download)
 DOWNLOADED_FILES := $(DOWNLOAD_FILES:%.download=%.downloaded)
 
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall
