@@ -13,15 +13,15 @@ INC_DIRS = $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 
-DOWNLOAD_FILES := $(shell find $(LIB_DIR) -name *.download)
-DOWNLOADED_FILES := $(DOWNLOAD_FILES:%=%ed)
+DOWNLOAD_FILES := $(shell find $(LIB_DIR) -d 1 -name *.download)
+DOWNLOADED_FILES := $(DOWNLOAD_FILES:%.download=%.downloaded)
 
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall
 
 %.downloaded: %.download
 	$(MKDIR_P) $(dir $<)/downloaded/$(basename $(notdir $<))/src
 	curl  -L $(shell cat $<) --output $(dir $<)/downloaded/$(basename $(notdir $<))/src/$(notdir $(shell cat $<))
-	touch $(dir $<)/downloaded/$(notdir $@)
+	touch $@
 
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
@@ -43,6 +43,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp $(DOWNLOADED_FILES)
 clean:
 	$(RM) -r $(BUILD_DIR)
 	$(RM) -r $(LIB_DIR)/downloaded
+	$(RM) $(LIB_DIR)/*.downloaded
 
 .PHONY: importLibs
 importLibs: $(DOWNLOADED_FILES)
