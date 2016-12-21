@@ -1,2 +1,2 @@
 BASEDIR=$(dirname "$0")
-$BASEDIR/../build/Pumpenansteuerung.out < $BASEDIR/TestProgram.drink
+$BASEDIR/../build/pumpcontrol.out < $BASEDIR/TestProgram.drink
