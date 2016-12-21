@@ -6,11 +6,11 @@
 #include <thread>
 
 
-class TcPumpenansteuerung{
+class PumpControl{
 
   public:
-    TcPumpenansteuerung();
-    ~TcPumpenansteuerung();
+    PumpControl();
+    ~PumpControl();
     void start(std::string receiptJsonString);
     void join();
 

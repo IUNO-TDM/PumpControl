@@ -1,4 +1,4 @@
-TARGET_EXEC ?= Pumpenansteuerung.out
+TARGET_EXEC ?= pumpcontrol.out
 
 BUILD_DIR ?= ./build
 LIB_DIR ?= ./lib

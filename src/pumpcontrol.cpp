@@ -1,4 +1,4 @@
-#include "TcPumpenAnsteuerung.h"
+#include "pumpcontrol.h"
 #include <chrono>
 using namespace std;
 using namespace nlohmann;
@@ -13,16 +13,16 @@ using namespace nlohmann;
 
     int main(int argc, char* argv[])
     {
-      TcPumpenansteuerung * pumpenAnsteuerung = new TcPumpenansteuerung();
+      PumpControl * pumpControl = new PumpControl();
       string jsonText;
       readStdin(&jsonText);
-      pumpenAnsteuerung->start(jsonText);
-      pumpenAnsteuerung->join();
-      delete pumpenAnsteuerung;
+      pumpControl->start(jsonText);
+      pumpControl->join();
+      delete pumpControl;
       return 0;
     }
 
-    TcPumpenansteuerung::TcPumpenansteuerung(){
+    PumpControl::PumpControl(){
       initializeIngredientToOutput();
 
       // int           i = 0;
@@ -44,13 +44,13 @@ using namespace nlohmann;
       //       firmata_digitalWrite(mFirmata, 13, LOW); //unlight led
       //   }
     }
-    TcPumpenansteuerung::~TcPumpenansteuerung(){
+    PumpControl::~PumpControl(){
 
 
     }
 
 
-    void TcPumpenansteuerung::start(string receiptJsonString){
+    void PumpControl::start(string receiptJsonString){
       json j = json::parse(receiptJsonString);
       cout << "Successfully imported receipt: " << j["id"] << endl;
       int maxTime = createTimeProgram(j,mTimeProgram);
@@ -68,14 +68,14 @@ using namespace nlohmann;
 
     }
 
-    void TcPumpenansteuerung::join(){
+    void PumpControl::join(){
         if (mTimerThread.joinable()){
           mTimerThread.join();
         }
     }
 
 
-    void TcPumpenansteuerung::initializeIngredientToOutput(){
+    void PumpControl::initializeIngredientToOutput(){
 
 
       // mIngredientToOutput = new unordered_map<string, int>();
@@ -86,7 +86,7 @@ using namespace nlohmann;
     }
 
 
-    int TcPumpenansteuerung::createTimeProgram(json j, TimeProgram &timeProgram){
+    int PumpControl::createTimeProgram(json j, TimeProgram &timeProgram){
 
 
       int time = 0;
@@ -116,7 +116,7 @@ using namespace nlohmann;
       return time;
     }
 
-    void TcPumpenansteuerung::addOutputToTimeProgram(TimeProgram &timeProgram, int time, int output, bool on){
+    void PumpControl::addOutputToTimeProgram(TimeProgram &timeProgram, int time, int output, bool on){
       TsTimeCommand timeCommand = timeProgram[time];
 
 
@@ -153,7 +153,7 @@ using namespace nlohmann;
 
     }
 
-    void TcPumpenansteuerung::timerWorker(int interval, int maximumTime){
+    void PumpControl::timerWorker(int interval, int maximumTime){
         mFirmata = firmata_new((char *)&"/dev/tty.usbserial-A104WO1O"[0]); //init Firmata
         while(!mFirmata->isReady) //Wait until device is up
           firmata_pull(mFirmata);
@@ -180,7 +180,7 @@ using namespace nlohmann;
         timerEnded();
     }
 
-    void TcPumpenansteuerung::createTimer(int interval, int maximumTime){
+    void PumpControl::createTimer(int interval, int maximumTime){
       thread myThread ([this, interval, maximumTime]{
         this->timerWorker(interval, maximumTime);
       });
@@ -188,7 +188,7 @@ using namespace nlohmann;
 
     }
 
-    void TcPumpenansteuerung::timerFired(int time)
+    void PumpControl::timerFired(int time)
     {
 
       if(mTimeProgram.find(time) != mTimeProgram.end() ){
@@ -202,7 +202,7 @@ using namespace nlohmann;
       }
     }
 
-    void TcPumpenansteuerung::timerEnded(){
+    void PumpControl::timerEnded(){
       printf("Timer ended!\n");
       for(auto i : mPumpToOutput){
         firmata_digitalWrite(mFirmata, i.second, LOW);
