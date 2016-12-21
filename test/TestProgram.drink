@@ -19,7 +19,7 @@
             "amount":25
           }
           ],
-        "timing":1,
+        "timing":3,
         "sleep":0
       },
       {
@@ -39,8 +39,8 @@
             "amount":25
           }
           ],
-        "timing":1,
-        "sleep":0
+        "timing":0,
+        "sleep":5000
       },
       {
         "components":
@@ -55,7 +55,7 @@
             "amount":25
           }
           ],
-        "timing":1,
+        "timing":3,
         "sleep":0
       }
     ]

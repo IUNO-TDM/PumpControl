@@ -8,8 +8,11 @@
 
 class PumpControl{
 
+  #define STD_SERIAL_PORT "/dev/tty.usbserial-A104WO1O"
+
   public:
     PumpControl();
+    PumpControl(char* serialPort, char* productId, bool simulateMachine);
     ~PumpControl();
     void start(std::string receiptJsonString);
     void join();
@@ -28,6 +31,9 @@ class PumpControl{
 
     TimeProgram mTimeProgram;
 
+    char* mSerialPort;
+    bool mSimulation;
+    char* mProductId;
 
     std::unordered_map<int, std::string> mPumpToIngredient  {
        { 1, "Orangensaft" },
