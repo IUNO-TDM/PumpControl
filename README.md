@@ -12,11 +12,11 @@ Program {
       "components": [
         {
           "ingredient":	"string",
-          "amount":	"number"
+          "amount":	"number: <the amount in ml"
         }
       ],
-      "timing":	"0: machine can decide, 1: all ingredients as fast as possible, 2: all beginning as early as possible and end with the slowest together, 3: one after the other",
-      "sleep":	"<the sleep time after the line in ms>"
+      "timing":	"number: 0: machine can decide, 1: all ingredients as fast as possible, 2: all beginning as early as possible and end with the slowest together, 3: one after the other",
+      "sleep":	"number: <the sleep time after the line in ms>"
      }
   ]
 }
