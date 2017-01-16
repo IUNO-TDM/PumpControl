@@ -95,16 +95,12 @@ using namespace nlohmann;
       cout << "Successfully imported receipt: " << j["id"] << endl;
       int maxTime = createTimeProgram(j,mTimeProgram);
 
-
-
       for(auto i : mTimeProgram){
         printf("time: %d, onLength: %d, offLength: %d\n", i.first, i.second.onLength, i.second.offLength);
 
       }
 
       createTimer(1, maxTime);
-
-
     }
 
     void PumpControl::join(){
@@ -115,19 +111,13 @@ using namespace nlohmann;
 
 
     void PumpControl::initializeIngredientToOutput(){
-
-
-      // mIngredientToOutput = new unordered_map<string, int>();
         for(auto i: mPumpToIngredient){
-
           mIngredientToOutput[i.second] = mPumpToOutput[i.first];
         }
     }
 
 
     int PumpControl::createTimeProgram(json j, TimeProgram &timeProgram){
-
-
       int time = 0;
       for(auto line: j["lines"].get<vector<json>>())
       {
@@ -160,21 +150,19 @@ using namespace nlohmann;
             if (endTime > maxTime){
               maxTime = endTime;
             }
+
             time = maxTime;
           }
-
-
         }
-
 
         time += sleep + 1;
       }
+
       return time;
     }
 
     void PumpControl::addOutputToTimeProgram(TimeProgram &timeProgram, int time, int output, bool on){
       TsTimeCommand timeCommand = timeProgram[time];
-
 
       if(on){
         bool found = false;
@@ -185,6 +173,7 @@ using namespace nlohmann;
             break;
           }
         }
+
         if(!found){
           timeCommand.onLength++;
           timeCommand.outputOn[timeCommand.onLength-1] = output;
@@ -199,14 +188,14 @@ using namespace nlohmann;
             break;
           }
         }
+
         if(!found){
           timeCommand.offLength++;
           timeCommand.outputOff[timeCommand.offLength-1] = output;
-          // printf("Output %d off at %d", output, time);
         }
       }
-      timeProgram[time] = timeCommand;
 
+      timeProgram[time] = timeCommand;
     }
 
     void PumpControl::timerWorker(int interval, int maximumTime){
@@ -214,10 +203,12 @@ using namespace nlohmann;
           mFirmata = firmata_new(mSerialPort); //init Firmata
           while(!mFirmata->isReady) //Wait until device is up
             firmata_pull(mFirmata);
+
           for(auto i : mPumpToOutput){
             firmata_pinMode(mFirmata, i.second, MODE_OUTPUT);
 
           }
+
           this_thread::sleep_for(chrono::seconds(2));
           for(auto i : mPumpToOutput){
             firmata_digitalWrite(mFirmata, i.second, LOW);
@@ -226,7 +217,6 @@ using namespace nlohmann;
         }
 
         int intervals = maximumTime / interval + 1;
-        // printf("max interval %d\n", intervals);
         auto startTime = chrono::system_clock::now();
         timerFired(0);
         int currentInterval = 1;
@@ -235,6 +225,7 @@ using namespace nlohmann;
           timerFired(interval * currentInterval);
           currentInterval++;
         }
+
         timerEnded();
     }
 
@@ -242,6 +233,7 @@ using namespace nlohmann;
       thread myThread ([this, interval, maximumTime]{
         this->timerWorker(interval, maximumTime);
       });
+
       mTimerThread = move(myThread);
 
     }
@@ -258,15 +250,15 @@ using namespace nlohmann;
               printf("Simulate Output %d OFF\n", timeCommand.outputOff[i]);
             }
           }
+
           for(int i = 0; i < timeCommand.onLength; i++){
             if(!mSimulation){
               firmata_digitalWrite(mFirmata, timeCommand.outputOn[i], HIGH);
             }else {
               printf("Simulate Output %d ON\n", timeCommand.outputOn[i]);
             }
-
           }
-      }
+       }
     }
 
     void PumpControl::timerEnded(){
