@@ -6,10 +6,18 @@ LIB_DIR ?= ./lib
 SRC_DIRS = ./src \
 	$(shell find $(LIB_DIR) -type d -path \*src\* -not -path \*test\*)
 
+3DP_LIBS = $(shell find $(LIB_DIR) -name *.a)
+3DP_DIRS = $(dir $(3DP_LIBS))
+
+
 SRCS = $(shell find $(SRC_DIRS) -name *.cpp -or -name *.c -or -name *.s)
 OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS = $(OBJS:.o=.d)
 INC_DIRS = $(shell find $(SRC_DIRS) -type d)
+INC_DIRS += $(3DP_DIRS)
+INC_DIRS += ./lib/websocketpp
+INC_DIRS += /usr/local/opt/openssl/include
+INC_DIRS += /usr/local/Cellar/boost/1.63.0/include/
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 
@@ -17,7 +25,7 @@ DOWNLOAD_FILES := $(shell find $(LIB_DIR) -name *.download)
 DOWNLOADED_FILES := $(DOWNLOAD_FILES:%.download=%.downloaded)
 
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall
-LDFLAGS := -pthread
+LDFLAGS := -L/usr/local/opt/openssl/lib -L/usr/local/Cellar/boost/1.63.0/lib/ -pthread -lcrypto -lboost_system -lboost_regex
 
 %.downloaded: %.download
 	$(MKDIR_P) $(dir $<)/downloaded/$(basename $(notdir $<))/src
