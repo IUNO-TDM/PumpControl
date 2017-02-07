@@ -17,7 +17,7 @@ INITIALIZE_EASYLOGGINGPP
 int main(int argc, char* argv[])
 {
 
-  PumpControl *pump_control = new PumpControl(true);
+  PumpControl *pump_control = new PumpControl(false);
   LOG(INFO) << "My first info log using default logger";
   cin.get();
   
@@ -70,15 +70,18 @@ void PumpControl::Init(const char* serialPort, bool simulation){
 
 
   SetPumpControlState(PUMP_STATE_IDLE);
-
+  string config_string;
   if(simulation_){
     pumpdriver_ = new PumpDriverSimulation();
     LOG(INFO) << "The simulation mode is on. Firmata not active!";
+    config_string = "simulation";
+
   }else{
     pumpdriver_ = new PumpDriverFirmata();
+    config_string = "/dev/tty.usbserial-A104WO1O";
   }
-  const char * configText = "blabla";
-  pumpdriver_->Init(configText);
+  
+  pumpdriver_->Init(config_string.c_str());
   pumpdriver_->GetPumps(&pumpdefinitions_);
   timeprogramrunner_ = new TimeProgramRunner(this,pumpdriver_);
   timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run,timeprogramrunner_);
@@ -154,7 +157,6 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
 bool PumpControl::SetPumpControlState(PumpControlState state){
   bool rv = false;
   LOG(DEBUG) << "SetPumpControlState: " << NameForPumpControlState(state);
-  // PumpControlState oldState = pumpcontrol_state_;
   switch(state){
     case PUMP_STATE_ACTIVE:
         if (pumpcontrol_state_ == PUMP_STATE_IDLE){
@@ -254,7 +256,7 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
             response->response_message = responseJson.dump();
             
           }
-      }else if (boost::starts_with(path,"/service")){
+      } else if (boost::starts_with(path,"/service")){
         if (boost::starts_with(path,"/service/pumps/")){
           boost::regex expr{"\\/service\\/pumps\\/([0-9]{1,2})"};
           boost::smatch what;
@@ -262,27 +264,28 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
             method == "PUT" && (body == "true" || body == "false")){
             int nr = stoi(what[1].str());
             if(pumpcontrol_state_ == PUMP_STATE_SERVICE){
-              if(pumpdefinitions_.find(nr) != pumpdefinitions_.end()){
-                //mach jetzt was
+              auto it = pumpdefinitions_.find(nr);
+              if(it != pumpdefinitions_.end()){
+                pumpdriver_->SetPump(nr,body=="true"?it->second.max_flow:0);
                 printf("Pump %d should be switched to %s\n",nr,body.c_str() );
                 response->response_code = 200;
                 response->response_message = "SUCCESS";
-              }else{
+              } else {
                 response->response_code = 400;
                 response->response_message = "Requested Pump not available";
               }
-            }else{
+            } else {
               response->response_code = 400;
               response->response_message = "PumpControl not in Service mode";
             }
-          }else {
+          } else {
             response->response_code = 400;
             response->response_message = "wrong format to control pumps in service mode";
           }
-        }else if(path == "/service" ||path == "/service/" ){
-          if(method == "PUT"){
-            if(body == "true"){
-              if(pumpcontrol_state_ == PUMP_STATE_IDLE ){
+        } else if (path == "/service" ||path == "/service/" ) {
+          if (method == "PUT"){
+            if (body == "true"){
+              if (pumpcontrol_state_ == PUMP_STATE_IDLE ) {
                 bool rv = SetPumpControlState(PUMP_STATE_SERVICE);
                 if(rv){
                   response->response_code = 200;
