@@ -5,16 +5,16 @@
 class WebInterfaceCallbackClient{
 public:
   typedef struct{
-      int responseCode;
-      std::string responseMessage;
-    }http_response_struct;
-  virtual bool httpMessage(std::string method, std::string path, std::string body, http_response_struct *response)=0;
-  virtual bool webSocketMessage(std::string message, std::string * response)=0;
-  std::string getClientName();
+      int response_code;
+      std::string response_message;
+    }HttpResponse;
+  virtual bool WebInterfaceHttpMessage(std::string method, std::string path, std::string body, HttpResponse *response)=0;
+  virtual bool WebInterfaceWebSocketMessage(std::string message, std::string * response)=0;
+  std::string GetClientName();
 protected:
-  void setClientName(std::string);
+  void SetClientName(std::string);
 
 
 private:
-  std::string callbackName;
+  std::string callback_name_;
 };

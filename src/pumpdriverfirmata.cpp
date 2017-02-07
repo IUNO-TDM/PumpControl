@@ -11,45 +11,45 @@ PumpDriverFirmata::~PumpDriverFirmata(){
 
 };
 
-void PumpDriverFirmata::init(const char *configTextPtr){
-    LOG(INFO) << "init with config text" << configTextPtr;
+void PumpDriverFirmata::Init(const char *config_text_ptr){
+    LOG(INFO) << "init with config text" << config_text_ptr;
 
-    mFirmata = firmata_new((char*)"/dev/tty.usbserial-A104WO1O"[0]); //init Firmata
-    while(!mFirmata->isReady) //Wait until device is up
-    firmata_pull(mFirmata);
+    firmata_ = firmata_new((char*)"/dev/tty.usbserial-A104WO1O"[0]); //init Firmata
+    while(!firmata_->isReady) //Wait until device is up
+    firmata_pull(firmata_);
 
-    for(auto i : mPumpToOutput){
-    firmata_pinMode(mFirmata, i.second, MODE_OUTPUT);
+    for(auto i : pump_to_output_){
+    firmata_pinMode(firmata_, i.second, MODE_OUTPUT);
 
     }
 
     this_thread::sleep_for(chrono::seconds(2));
-    for(auto i : mPumpToOutput){
-    firmata_digitalWrite(mFirmata, i.second, LOW);
+    for(auto i : pump_to_output_){
+    firmata_digitalWrite(firmata_, i.second, LOW);
 
     }
 };
 
-void PumpDriverFirmata::deInit(){
-    for(auto i : mPumpToOutput){
-      firmata_digitalWrite(mFirmata, i.second, LOW);
+void PumpDriverFirmata::DeInit(){
+    for(auto i : pump_to_output_){
+      firmata_digitalWrite(firmata_, i.second, LOW);
     }
 };
 
-void PumpDriverFirmata::getPumps(std::map<int, PumpDefinition>* pumpDefinitions){
-  if(pumpDefinitions->size() > 0){
-    pumpDefinitions->clear();
+void PumpDriverFirmata::GetPumps(std::map<int, PumpDriverInterface::PumpDefinition>* pump_definitions){
+  if(pump_definitions->size() > 0){
+    pump_definitions->clear();
   }
-  for(auto i : mPumpToOutput){
-    (*pumpDefinitions)[i.first] = PumpDefinition();
-    pumpDefinitions->at(i.first).minFlow = FLOW;
-    pumpDefinitions->at(i.first).maxFlow = FLOW;
-    pumpDefinitions->at(i.first).flowPrecision = 0;
+  for(auto i : pump_to_output_){
+    (*pump_definitions)[i.first] = PumpDefinition();
+    pump_definitions->at(i.first).min_flow = FLOW;
+    pump_definitions->at(i.first).max_flow = FLOW;
+    pump_definitions->at(i.first).flow_precision = 0;
     
   }
 };
 
-void PumpDriverFirmata::setPump(int pumpNumber, float flow){
-    LOG(INFO) << "setPump " << pumpNumber << flow;
-    firmata_digitalWrite(mFirmata,mPumpToOutput[pumpNumber], (flow>0) ? HIGH : LOW);
+void PumpDriverFirmata::SetPump(int pump_number, float flow){
+    LOG(INFO) << "setPump " << pump_number << flow;
+    firmata_digitalWrite(firmata_,pump_to_output_[pump_number], (flow>0) ? HIGH : LOW);
 };

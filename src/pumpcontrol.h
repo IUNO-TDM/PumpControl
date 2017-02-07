@@ -8,10 +8,11 @@
 #include "easylogging++.h"
 #include <boost/bimap.hpp>
 #include "pumpdriverinterface.h"
+#include "timeprogramrunner.h"
 
-class PumpControl: public WebInterfaceCallbackClient{
+class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCallback{
 
-  #define STD_SERIAL_PORT "/dev/tty.usbserial-A104WO1O"
+   
 
   public:
     typedef enum {
@@ -23,38 +24,34 @@ class PumpControl: public WebInterfaceCallbackClient{
     }PumpControlState;
 
     PumpControl();
-    PumpControl(char* serialPort);
+    PumpControl(const char* serialPort);
     PumpControl(bool simulation);
     ~PumpControl();
-    void start(std::string receiptJsonString);
-    void join();
 
-    bool httpMessage(std::string method, std::string path, std::string body, http_response_struct *response);
-    bool webSocketMessage(std::string message, std::string * response);
+    //WebInterfaceCallbackClient
+    bool WebInterfaceHttpMessage(std::string method, std::string path, std::string body, HttpResponse *response);
+    bool WebInterfaceWebSocketMessage(std::string message, std::string * response);
+    //TimeProgramRunnerCallback
+    void TimeProgramRunnerProgressUpdate(int percent);
+    void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state);
+    void TimeProgramRunnerProgramEnded();
 
   private:
-    PumpControlState mPumpControlState = PUMP_STATE_UNINITIALIZED;
-    PumpDriverInterface * mPumpDriver;
-    std::map<int,PumpDriverInterface::PumpDefinition> mPumpDefinitions;
-    WebInterface * mWebInterface;
-    typedef struct {
-      int onLength = 0;
-      int offLength = 0;
-      int outputOn[8];
-      int outputOff[8];
-    }TsTimeCommand;
-    typedef std::map<int,TsTimeCommand> TimeProgram;
+    PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
+    PumpDriverInterface * pumpdriver_;
+    std::map<int,PumpDriverInterface::PumpDefinition> pumpdefinitions_;
+    WebInterface * webinterface_;
+    TimeProgramRunner * timeprogramrunner_;
 
-    TimeProgram mTimeProgram;
+    TimeProgramRunner::TimeProgram timeprogram_;
 
-
-    char* mSerialPort;
-    bool mSimulation;
-    char* mProductId;
-
+    char* serialport_;
+    bool simulation_;
+    
+    const char * STD_SERIAL_PORT = "/dev/tty.usbserial-A104WO1O";
     typedef boost::bimap<int,std::string> IngredientsBiMap;
-    IngredientsBiMap mPumpToIngredientsBiMap;
-    std::map<int,std::string> mPumpToIngredientsInit  {
+    IngredientsBiMap pump_ingredients_bimap_;
+    const std::map<int,std::string> kPumpIngredientsInit  {
        { 1, "Orangensaft" },
        { 2, "Apfelsaft" },
        { 3, "Sprudel" },
@@ -64,14 +61,16 @@ class PumpControl: public WebInterfaceCallbackClient{
        { 7, "Cola" },
        { 8, "Fanta" }};
     
-    std::thread mTimerThread;
+    std::thread timeprogramrunner_thread_;
 
-    int createTimeProgram(nlohmann::json j, TimeProgram &timeProgram);
-    void addOutputToTimeProgram(TimeProgram &timeProgram, int time, int pump, bool on);
-    void timerWorker(int interval, int maximumTime);
-    void createTimer(int interval, int maximumTime);
-    void timerFired( int time);
-    void timerEnded();
-    bool setPumpControlState(PumpControlState state);
-
+    int CreateTimeProgram(nlohmann::json j, TimeProgramRunner::TimeProgram &timeprogram);
+    // void addOutputToTimeProgram(TimeProgram &timeProgram, int time, int pump, bool on);
+    void TimerWorker(int interval, int maximumTime);
+    void CreateTimer(int interval, int maximumTime);
+    void TimerFired( int time);
+    void TimerEnded();
+    bool SetPumpControlState(PumpControlState state);
+    void Init(const char* serial_port, bool simulation);
+    bool Start(const char* receipt_json_string);
+    const char* NameForPumpControlState(PumpControlState state);
 };

@@ -17,254 +17,189 @@ INITIALIZE_EASYLOGGINGPP
 int main(int argc, char* argv[])
 {
 
-  PumpControl * pumpControl = new PumpControl();
+  PumpControl *pump_control = new PumpControl(true);
   LOG(INFO) << "My first info log using default logger";
   cin.get();
-
-  pumpControl->join();
-  delete pumpControl;
+  
+  delete pump_control;
+  LOG(INFO) << "Application closes now";
   return 0;
 }
 
-
-PumpControl::PumpControl(char* serialPort)
+PumpControl::PumpControl(const char* serialPort)
 {
-
-  for(auto i: mPumpToIngredientsInit){
-    mPumpToIngredientsBiMap.insert(IngredientsBiMap::value_type(i.first, i.second));
-  }
-
-
-  mWebInterface= new WebInterface(9002);
-  setClientName("PumpControl");
-  mWebInterface->registerCallbackClient(this);
-  mWebInterface->start();
-
-
-  setPumpControlState(PUMP_STATE_IDLE);
-
-  if(mSimulation){
-    mPumpDriver = new PumpDriverSimulation();
-    printf("The simulation mode is on. Firmata not active!\n");
-  }else{
-    mPumpDriver = new PumpDriverFirmata();
-  }
-  
-  mPumpDriver->init(NULL);
-  mPumpDriver->getPumps(&mPumpDefinitions);
+  Init(serialPort, false);
 }
 
 PumpControl::PumpControl(){
-  PumpControl((char*)STD_SERIAL_PORT[0]);
-  mSimulation = false;
+  Init(STD_SERIAL_PORT, false);
 }
 
 PumpControl::PumpControl(bool simulation){
-  PumpControl((char*)STD_SERIAL_PORT[0]);
-  mSimulation = true;
+  Init(STD_SERIAL_PORT, simulation);
 }
 
 PumpControl::~PumpControl(){
-  mWebInterface->stop();
-  mWebInterface->unregisterCallbackClient(this);
-  delete mWebInterface;
-  delete mPumpDriver;
+  LOG(DEBUG) << "PumpControl destructor";
+  webinterface_->Stop();
+  webinterface_->UnregisterCallbackClient(this);
+  timeprogramrunner_->Shutdown();
+  timeprogramrunner_thread_.join();
+  delete timeprogramrunner_;
+  delete webinterface_;
+  delete pumpdriver_;
+  LOG(DEBUG) << "PumpControl destructor finished";
 }
 
 
-void PumpControl::start(string receiptJsonString){
-  json j = json::parse(receiptJsonString);
-  cout << "Successfully imported receipt: " << j["id"] << endl;
-  int maxTime = createTimeProgram(j,mTimeProgram);
+void PumpControl::Init(const char* serialPort, bool simulation){
+  simulation_ = simulation;
+  uint len = strlen(serialPort);
+  serialport_ = new char(len);
+  strcpy(serialport_, serialPort);
 
-  for(auto i : mTimeProgram){
-    printf("time: %d, onLength: %d, offLength: %d\n", i.first, i.second.onLength, i.second.offLength);
-
+  for(auto i: kPumpIngredientsInit){
+    pump_ingredients_bimap_.insert(IngredientsBiMap::value_type(i.first, i.second));
   }
 
-  createTimer(1, maxTime);
+
+  webinterface_= new WebInterface(9002);
+  SetClientName("PumpControl");
+  webinterface_->RegisterCallbackClient(this);
+  webinterface_->Start();
+
+
+  SetPumpControlState(PUMP_STATE_IDLE);
+
+  if(simulation_){
+    pumpdriver_ = new PumpDriverSimulation();
+    LOG(INFO) << "The simulation mode is on. Firmata not active!";
+  }else{
+    pumpdriver_ = new PumpDriverFirmata();
+  }
+  const char * configText = "blabla";
+  pumpdriver_->Init(configText);
+  pumpdriver_->GetPumps(&pumpdefinitions_);
+  timeprogramrunner_ = new TimeProgramRunner(this,pumpdriver_);
+  timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run,timeprogramrunner_);
 }
 
-void PumpControl::join(){
-    if (mTimerThread.joinable()){
-      mTimerThread.join();
-    }
+bool PumpControl::Start(const char*  recipe_json_string){
+  bool success = false;
+  success = SetPumpControlState(PUMP_STATE_ACTIVE);
+  json j = json::parse(recipe_json_string);
+  LOG(DEBUG) << "Successfully imported recipe: " << j["id"];
+  int max_time = CreateTimeProgram(j,timeprogram_);
+
+  timeprogramrunner_->StartProgram(timeprogram_);
+  
+  return success;
 }
 
 
-int PumpControl::createTimeProgram(json j, TimeProgram &timeProgram){
+
+int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timeprogram){
+  LOG(DEBUG) << "createTimeProgram";
   int time = 0;
-  // for(auto line: j["lines"].get<vector<json>>())
-  // {
-  //   int maxTime = time;
-  //   int sleep = line["sleep"].get<int>();
-  //   int timing = line["timing"].get<int>();
+  for(auto line: j["lines"].get<vector<json>>())
+  {
+    int max_time = time;
+    int sleep = line["sleep"].get<int>();
+    int timing = line["timing"].get<int>();
 
-  //   if(timing == 0 || timing == 1 || timing == 2){
-  //     for(auto component: line["components"].get<std::vector<json>>())
-  //     {
-  //       string ingredient = component["ingredient"].get<string>();
-  //       int amount = component["amount"].get<int>();
-  //       this->addOutputToTimeProgram(timeProgram,time, mPumpToIngredientsBiMap.right.count(ingredient), true);
-  //       int endTime = time + amount * MS_PER_ML;
-  //       this->addOutputToTimeProgram(timeProgram, endTime, mPumpToIngredientsBiMap.right.count(ingredient), false);
-  //       if (endTime > maxTime){
-  //         maxTime = endTime;
-  //       }
-  //     }
+    if(timing == 0 || timing == 1 || timing == 2){
+      for(auto component: line["components"].get<std::vector<json>>())
+      {
+        string ingredient = component["ingredient"].get<string>();
+        int amount = component["amount"].get<int>();
+        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+        float max_flow =  pumpdefinitions_[pump_number].max_flow;
+        timeprogram[time][pump_number] = max_flow;
+        int end_time = time + amount / max_flow;
+        timeprogram[end_time][pump_number] = 0;
+        
+        if (end_time > max_time){
+          max_time = end_time;
+        }
+      }
 
-  //     time = maxTime;
-  //   }else if (timing == 3){
-  //     for(auto component: line["components"].get<std::vector<json>>())
-  //     {
-  //       string ingredient = component["ingredient"].get<string>();
-  //       int amount = component["amount"].get<int>();
-  //       this->addOutputToTimeProgram(timeProgram,time, mPumpToIngredientsBiMap.right.count(ingredient), true);
-  //       int endTime = time + amount * MS_PER_ML;
-  //       this->addOutputToTimeProgram(timeProgram, endTime, mPumpToIngredientsBiMap.right.count(ingredient), false);
-  //       if (endTime > maxTime){
-  //         maxTime = endTime;
-  //       }
+      time = max_time;
+    } else if (timing == 3){
+      for(auto component: line["components"].get<std::vector<json>>())
+      {
+        string ingredient = component["ingredient"].get<string>();
+        int amount = component["amount"].get<int>();
+        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+        float max_flow =  pumpdefinitions_[pump_number].max_flow;
+        timeprogram[time][pump_number] = max_flow;
+        int end_time = time + amount / max_flow;
+        timeprogram[end_time][pump_number] = 0;
+        
+        if (end_time > max_time){
+          max_time = end_time;
+        }
 
-  //       time = maxTime;
-  //     }
-  //   }
+        time = max_time;
+      }
+    }
 
-  //   time += sleep + 1;
-  // }
+    time += sleep + 1;
+  }
 
   return time;
 }
 
-void PumpControl::addOutputToTimeProgram(TimeProgram &timeProgram, int time, int pump, bool on){
-  TsTimeCommand timeCommand = timeProgram[time];
-
-  // if(on){
-  //   bool found = false;
-  //   for(int i = 0; i<timeCommand.onLength; i++)
-  //   {
-  //     if(timeCommand.outputOn[i] == output){
-  //       found = true;
-  //       break;
-  //     }
-  //   }
-
-  //   if(!found){
-  //     timeCommand.onLength++;
-  //     timeCommand.outputOn[timeCommand.onLength-1] = output;
-  //     // printf("Output %d on at %d", output, time);
-  //   }
-  // }else {
-  //   bool found = false;
-  //   for(int i = 0; i<timeCommand.offLength; i++)
-  //   {
-  //     if(timeCommand.outputOff[i] == output){
-  //       found = true;
-  //       break;
-  //     }
-  //   }
-
-  //   if(!found){
-  //     timeCommand.offLength++;
-  //     timeCommand.outputOff[timeCommand.offLength-1] = output;
-  //   }
-  // }
-
-  timeProgram[time] = timeCommand;
-}
-
-void PumpControl::timerWorker(int interval, int maximumTime){
-
-    // int intervals = maximumTime / interval + 1;
-    // auto startTime = chrono::system_clock::now();
-    // timerFired(0);
-    // int currentInterval = 1;
-    // while(currentInterval < intervals){
-    //   this_thread::sleep_until(startTime + chrono::milliseconds(interval * currentInterval));
-    //   timerFired(interval * currentInterval);
-    //   currentInterval++;
-    // }
-
-    timerEnded();
-}
-
-void PumpControl::createTimer(int interval, int maximumTime){
-  thread myThread ([this, interval, maximumTime]{
-    this->timerWorker(interval, maximumTime);
-  });
-
-  mTimerThread = move(myThread);
-
-}
-
-void PumpControl::timerFired(int time)
-{
-
-  // if(mTimeProgram.find(time) != mTimeProgram.end() ){
-  //     TsTimeCommand timeCommand = mTimeProgram[time];
-  //     for(int i = 0; i < timeCommand.offLength; i++){
-  //       if(!mSimulation){
-  //         firmata_digitalWrite(mFirmata, timeCommand.outputOff[i], LOW);
-  //       }else {
-  //         printf("Simulate Output %d OFF\n", timeCommand.outputOff[i]);
-  //       }
-  //     }
-
-  //     for(int i = 0; i < timeCommand.onLength; i++){
-  //       if(!mSimulation){
-  //         firmata_digitalWrite(mFirmata, timeCommand.outputOn[i], HIGH);
-  //       }else {
-  //         printf("Simulate Output %d ON\n", timeCommand.outputOn[i]);
-  //       }
-  //     }
-  //  }
-}
-
-void PumpControl::timerEnded(){
-  printf("Timer ended!\n");
-  // if(!mSimulation){
-  //   for(auto i : mPumpToOutput){
-  //     firmata_digitalWrite(mFirmata, i.second, LOW);
-  //   }
-  // }
-
-}
 
 
-bool PumpControl::setPumpControlState(PumpControlState state){
+bool PumpControl::SetPumpControlState(PumpControlState state){
   bool rv = false;
-  PumpControlState oldState = mPumpControlState;
+  LOG(DEBUG) << "SetPumpControlState: " << NameForPumpControlState(state);
+  // PumpControlState oldState = pumpcontrol_state_;
   switch(state){
     case PUMP_STATE_ACTIVE:
-        if (mPumpControlState == PUMP_STATE_IDLE){
-          mPumpControlState = state;
+        if (pumpcontrol_state_ == PUMP_STATE_IDLE){
+          pumpcontrol_state_ = state;
           rv = true;
         }
         break;
     case PUMP_STATE_SERVICE:
-      if(mPumpControlState == PUMP_STATE_IDLE){
-        mPumpControlState = state;
+      if(pumpcontrol_state_ == PUMP_STATE_IDLE){
+        pumpcontrol_state_ = state;
         rv = true;
       }
       break;
     case PUMP_STATE_UNINITIALIZED:
       break;
     default:
-      mPumpControlState = state;
+      pumpcontrol_state_ = state;
       rv = true;
       break;
 
   }
   if(rv){
-    //send update per Websocket
+    LOG(DEBUG) << "send update to websocketclients: " << NameForPumpControlState(state);
+    json json_message = json::object();
+    json_message["mode"] = NameForPumpControlState(pumpcontrol_state_);
+    webinterface_->SendMessage(json_message.dump());
   }
   return rv;
 }
 
-bool PumpControl::httpMessage(std::string method, std::string path, std::string body, http_response_struct *response){
+const char* PumpControl::NameForPumpControlState(PumpControlState state){
+  switch(state){
+    case PUMP_STATE_ACTIVE: return "active";
+    case PUMP_STATE_ERROR: return "error";
+    case PUMP_STATE_IDLE: return "idle";
+    case PUMP_STATE_SERVICE: return "service";
+    case PUMP_STATE_UNINITIALIZED: return "uninitialized";
+  }
+  return "internal problem";
+}
+
+bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, std::string body, HttpResponse *response){
     printf("HTTP Message: Method: %s,Path:%s, Body:%s\n",method.c_str() ,path.c_str() ,body.c_str());
-    response->responseCode = 400;
-    response->responseMessage = "Ey yo - nix";
+    response->response_code = 400;
+    response->response_message = "Ey yo - nix";
     try {
       if (boost::starts_with(path,"/ingredients/"))
       {
@@ -274,45 +209,49 @@ bool PumpControl::httpMessage(std::string method, std::string path, std::string 
           int nr = stoi(what[1].str());
           std::cout << nr<< '\n';
           if (method == "GET"){
-            if(mPumpToIngredientsBiMap.left.find(nr) != mPumpToIngredientsBiMap.left.end()){
-              response->responseCode = 200;
-              response->responseMessage = mPumpToIngredientsBiMap.left.at(nr);
+            if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()){
+              response->response_code = 200;
+              response->response_message = pump_ingredients_bimap_.left.at(nr);
             }else{
-              response->responseCode = 404;
-              response->responseMessage = "No ingredient for this pump number available!";
+              response->response_code = 404;
+              response->response_message = "No ingredient for this pump number available!";
             }
           }else if (method == "PUT"){
             if(body.length()> 0){
-              auto it = mPumpToIngredientsBiMap.left.find(nr);
-              mPumpToIngredientsBiMap.left.replace_data(it,body);
-              response->responseCode = 200;
-              response->responseMessage = "Successfully stored ingredient for pump";
+              auto it = pump_ingredients_bimap_.left.find(nr);
+              pump_ingredients_bimap_.left.replace_data(it,body);
+              response->response_code = 200;
+              response->response_message = "Successfully stored ingredient for pump";
 
             }
           }else if (method == "DELETE") {
-            if(mPumpToIngredientsBiMap.left.find(nr) != mPumpToIngredientsBiMap.left.end()){
-              mPumpToIngredientsBiMap.left.erase(nr);
-              response->responseCode = 200;
-              response->responseMessage = "Successfully deleted ingredient for pump";
+            if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()){
+              pump_ingredients_bimap_.left.erase(nr);
+              response->response_code = 200;
+              response->response_message = "Successfully deleted ingredient for pump";
             }else{
-              response->responseCode = 404;
-              response->responseMessage = "No ingredient for this pump number available!";
+              response->response_code = 404;
+              response->response_message = "No ingredient for this pump number available!";
             }
           }else {
-            response->responseCode = 400;
-            response->responseMessage = "Wrong method for this URL";
+            response->response_code = 400;
+            response->response_message = "Wrong method for this URL";
           }
         }
       }else if (boost::starts_with(path,"/pumps")){
         if (method == "GET"){
-            json responseJson;
-            for(auto i: mPumpDefinitions){
-              responseJson[i.first]["minFlow"] = i.second.minFlow;
-              responseJson[i.first]["maxFlow"] = i.second.maxFlow;
-              responseJson[i.first]["flowPrecision"] = i.second.flowPrecision;
+            json responseJson = json::object();
+            for(auto i: pumpdefinitions_){
+              char key[3];
+              sprintf(key,"%d",i.first);
+              json pump = json::object();
+              pump["minFlow"] = i.second.min_flow;
+              pump["maxFlow"] = i.second.max_flow;
+              pump["flowPrecision"] = i.second.flow_precision;
+              responseJson[key]= pump;
             }
-            response->responseCode = 200;
-            response->responseMessage = responseJson.dump();
+            response->response_code = 200;
+            response->response_message = responseJson.dump();
             
           }
       }else if (boost::starts_with(path,"/service")){
@@ -322,90 +261,93 @@ bool PumpControl::httpMessage(std::string method, std::string path, std::string 
           if(boost::regex_search(path,what,expr) &&
             method == "PUT" && (body == "true" || body == "false")){
             int nr = stoi(what[1].str());
-            if(mPumpControlState == PUMP_STATE_SERVICE){
-              if(mPumpDefinitions.find(nr) != mPumpDefinitions.end()){
+            if(pumpcontrol_state_ == PUMP_STATE_SERVICE){
+              if(pumpdefinitions_.find(nr) != pumpdefinitions_.end()){
                 //mach jetzt was
                 printf("Pump %d should be switched to %s\n",nr,body.c_str() );
-                response->responseCode = 200;
-                response->responseMessage = "SUCCESS";
+                response->response_code = 200;
+                response->response_message = "SUCCESS";
               }else{
-                response->responseCode = 400;
-                response->responseMessage = "Requested Pump not available";
+                response->response_code = 400;
+                response->response_message = "Requested Pump not available";
               }
             }else{
-              response->responseCode = 400;
-              response->responseMessage = "PumpControl not in Service mode";
+              response->response_code = 400;
+              response->response_message = "PumpControl not in Service mode";
             }
           }else {
-            response->responseCode = 400;
-            response->responseMessage = "wrong format to control pumps in service mode";
+            response->response_code = 400;
+            response->response_message = "wrong format to control pumps in service mode";
           }
         }else if(path == "/service" ||path == "/service/" ){
           if(method == "PUT"){
             if(body == "true"){
-              if(mPumpControlState == PUMP_STATE_IDLE ){
-                bool rv = setPumpControlState(PUMP_STATE_SERVICE);
+              if(pumpcontrol_state_ == PUMP_STATE_IDLE ){
+                bool rv = SetPumpControlState(PUMP_STATE_SERVICE);
                 if(rv){
-                  response->responseCode = 200;
-                  response->responseMessage = "Successfully changed to Service state";
+                  response->response_code = 200;
+                  response->response_message = "Successfully changed to Service state";
                 }else {
-                  response->responseCode = 500;
-                  response->responseMessage = "Could not set Service mode";
+                  response->response_code = 500;
+                  response->response_message = "Could not set Service mode";
                 }
 
-              }else if (mPumpControlState == PUMP_STATE_SERVICE) {
-                response->responseCode = 300;
-                response->responseMessage = "is already Service state";
+              }else if (pumpcontrol_state_ == PUMP_STATE_SERVICE) {
+                response->response_code = 300;
+                response->response_message = "is already Service state";
               }else {
-                response->responseCode = 400;
-                response->responseMessage = "Currently in wrong state for Service";
+                response->response_code = 400;
+                response->response_message = "Currently in wrong state for Service";
               }
             }else if (body == "false"){
-              if( mPumpControlState == PUMP_STATE_SERVICE){
-                bool rv = setPumpControlState(PUMP_STATE_IDLE);
+              if( pumpcontrol_state_ == PUMP_STATE_SERVICE){
+                bool rv = SetPumpControlState(PUMP_STATE_IDLE);
                 if(rv){
-                  response->responseCode = 200;
-                  response->responseMessage = "Successfully changed to Idle state";
+                  response->response_code = 200;
+                  response->response_message = "Successfully changed to Idle state";
                 }else {
-                  response->responseCode = 500;
-                  response->responseMessage = "Could not set idle mode";
+                  response->response_code = 500;
+                  response->response_message = "Could not set idle mode";
                 }
-              }else if (mPumpControlState == PUMP_STATE_IDLE) {
-                response->responseCode = 300;
-                response->responseMessage = "is already idle state";
+              }else if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
+                response->response_code = 300;
+                response->response_message = "is already idle state";
               }else {
-                response->responseCode = 400;
-                response->responseMessage = "Currently in wrong state for idle";
+                response->response_code = 400;
+                response->response_message = "Currently in wrong state for idle";
               }
             }else {
-              response->responseCode = 400;
-              response->responseMessage = "incorrect parameter";
+              response->response_code = 400;
+              response->response_message = "incorrect parameter";
             }
 
           }else {
-            response->responseCode = 400;
-            response->responseMessage = "servicemode can only be set or unset.\
+            response->response_code = 400;
+            response->response_message = "servicemode can only be set or unset.\
             No other function available. watch websocket!";
           }
         }
       }else if (path == "/program"){
         if(method == "PUT"){
-          if(mPumpControlState == PUMP_STATE_IDLE){
-            //check Program
-            printf("Program should be loaded: %s\n",body.c_str() );
-            response->responseCode = 200;
-            response->responseMessage = "SUCCESS";
+          if(pumpcontrol_state_ == PUMP_STATE_IDLE){
+            if(Start(body.c_str())){
+              response->response_code = 200;
+              response->response_message = "SUCCESS";
+            }else{
+              response->response_code = 500;
+              response->response_message = "Could not start the Program";  
+            }
           }else {
-            response->responseCode = 400;
-            response->responseMessage = "PumpControl must be in mode idle to upload a program";
+            response->response_code = 400;
+            response->response_message = "PumpControl must be in mode idle to upload a program";
           }
         }else{
-          response->responseCode = 400;
-          response->responseMessage = "wrong method for program upload";
+          response->response_code = 400;
+          response->response_message = "wrong method for program upload";
         }
       }else{
-        response->responseCode = 400;
-        response->responseMessage = "unrecognized path";
+        response->response_code = 400;
+        response->response_message = "unrecognized path";
       }
     } catch (boost::bad_lexical_cast) {
         // bad parameter
@@ -415,7 +357,33 @@ bool PumpControl::httpMessage(std::string method, std::string path, std::string 
 
     return true;
 }
-bool PumpControl::webSocketMessage(std::string message, std::string * response){
+bool PumpControl::WebInterfaceWebSocketMessage(std::string message, std::string * response){
     *response = "bla";
     return true;
+}
+
+void PumpControl::TimeProgramRunnerProgressUpdate(int percent){
+  LOG(DEBUG) << "TimeProgramRunnerProgressUpdate " << percent; 
+  json json_message = json::object();
+  json_message["progress"] = percent;
+  webinterface_->SendMessage(json_message.dump());
+
+}
+void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state){
+  LOG(DEBUG) << "TimeProgramRunnerStateUpdate " << TimeProgramRunner::NameForState(state);
+
+  switch(state){
+    case TimeProgramRunner::TimeProgramRunnerState::TIME_PROGRAM_IDLE:
+      SetPumpControlState(PUMP_STATE_IDLE);
+      break;
+    case  TimeProgramRunner::TimeProgramRunnerState::TIME_PROGRAM_ACTIVE:
+       SetPumpControlState(PUMP_STATE_ACTIVE);
+      break;
+    default:
+      //do nothing
+      break;
+  }
+}
+void PumpControl::TimeProgramRunnerProgramEnded(){
+  LOG(DEBUG) << "TimeProgramRunnerProgramEnded";
 }

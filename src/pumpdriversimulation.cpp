@@ -1,34 +1,34 @@
 #include <pumpdriversimulation.h>
 #include <easylogging++.h>
 
-PumpDriverSimulation::PumpDriverInterface(){
+PumpDriverSimulation::PumpDriverSimulation(){
     
 };
 
-PumpDriverSimulation::~PumpDriverInterface(){
+PumpDriverSimulation::~PumpDriverSimulation(){
     
 };
 
-void PumpDriverSimulation::init(const char *configTextPtr){
-    LOG(INFO) << "init with config text" << configTextPtr;
+void PumpDriverSimulation::Init(const char *config_text_ptr){
+    LOG(INFO) << "init with config text" << config_text_ptr;
 };
 
-void PumpDriverSimulation::deInit(){
+void PumpDriverSimulation::DeInit(){
     LOG(INFO) << "deInit";
 };
 
-void PumpDriverSimulation::getPumps(std::map<int, PumpDefinition>* pumpDefinitions){
-    if(pumpDefinitions->size() > 0){
-    pumpDefinitions->clear()
+void PumpDriverSimulation::GetPumps(std::map<int, PumpDriverInterface::PumpDefinition>* pump_definitions){
+    if(pump_definitions->size() > 0){
+    pump_definitions->clear();
   }
-  for(auto i : mPumpToOutput){
-    pumpDefinitions->insert(i.first, PumpDefinition());
-    pumpDefinitions->at(i.first).minFlow = FLOW;
-    pumpDefinitions->at(i.first).maxFlow = FLOW;
-    pumpDefinitions->at(i.first).flowPrecision = 0;
+  for(auto i : pump_to_output_){
+    (*pump_definitions)[i.first] = PumpDefinition();
+    pump_definitions->at(i.first).min_flow = FLOW;
+    pump_definitions->at(i.first).max_flow = FLOW;
+    pump_definitions->at(i.first).flow_precision = 0;
   }
 };
  
-void PumpDriverSimulation::setPump(int pumpNumber, float flow){
-    LOG(INFO) << "setPump " << pumpNumber << flow;
+void PumpDriverSimulation::SetPump(int pump_number, float flow){
+    LOG(INFO) << "setPump " << pump_number << " : "<< flow;
 };

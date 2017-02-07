@@ -1,5 +1,6 @@
 #include <webinterface.h>
 #include <websocketpp/common/thread.hpp>
+#include "easylogging++.h"
 using websocketpp::connection_hdl;
 using websocketpp::lib::placeholders::_1;
 using websocketpp::lib::placeholders::_2;
@@ -13,84 +14,100 @@ using websocketpp::lib::condition_variable;
 using namespace std;
 
 WebInterface::WebInterface(int port){
-  mPort = port;
-  // callbackclients = new CallbackClientsMap();
-  mServer.set_access_channels(websocketpp::log::alevel::all);
-  mServer.clear_access_channels(websocketpp::log::alevel::frame_payload);
-  mServer.init_asio();
-  mServer.listen(mPort);
-  mServer.set_open_handler(bind(&WebInterface::on_open,this, ::_1));
-  mServer.set_close_handler(bind(&WebInterface::on_close,this,::_1));
-  mServer.set_http_handler(bind(&WebInterface::on_http,this,::_1));
-  mServer.set_message_handler(bind(&WebInterface::on_message,this,::_1,::_2));
+  port_ = port;
+  // callback_clients_ = new callback_clients_Map();
+  server_.set_access_channels(websocketpp::log::alevel::all);
+  server_.clear_access_channels(websocketpp::log::alevel::frame_payload);
+  server_.init_asio();
+  server_.listen(port_);
+  server_.set_open_handler(bind(&WebInterface::OnOpen,this, ::_1));
+  server_.set_close_handler(bind(&WebInterface::OnClose,this,::_1));
+  server_.set_http_handler(bind(&WebInterface::OnHttp,this,::_1));
+  server_.set_message_handler(bind(&WebInterface::OnMessage,this,::_1,::_2));
 
 }
 
-void WebInterface::registerCallbackClient(WebInterfaceCallbackClient *client){
-  callbackClients[client->getClientName()] = client;
-}
-void WebInterface::unregisterCallbackClient(WebInterfaceCallbackClient *client){
-  callbackClients.erase(client->getClientName());
-}
-
-void WebInterface::on_open(connection_hdl hdl){
-  printf("Juhuu open\n" );
+WebInterface::~WebInterface(){
+  if(server_thread_.joinable()){
+    server_thread_.join();
+  }
 }
 
-void WebInterface::on_close(connection_hdl hdl){
-  printf("close\n" );
+void WebInterface::RegisterCallbackClient(WebInterfaceCallbackClient *client){
+  callback_clients_[client->GetClientName()] = client;
+}
+void WebInterface::UnregisterCallbackClient(WebInterfaceCallbackClient *client){
+  callback_clients_.erase(client->GetClientName());
 }
 
-void WebInterface::on_http(connection_hdl hdl){
-  printf("http\n" );
-  server::connection_ptr con = mServer.get_con_from_hdl(hdl);
+void WebInterface::OnOpen(connection_hdl hdl){
+  lock_guard<mutex> guard(connection_mutex_);
+  LOG(DEBUG) << "WebInterface onOpen";
+  connections_.insert(hdl);
+}
+
+void WebInterface::OnClose(connection_hdl hdl){
+  lock_guard<mutex> guard(connection_mutex_);
+  LOG(DEBUG) << "WebInterface onClose";
+  connections_.erase(hdl);
+}
+void WebInterface::OnHttp(connection_hdl hdl){
+  LOG(DEBUG) << "WebInterface onHttp";
+  WebSocketServer::connection_ptr con = server_.get_con_from_hdl(hdl);
 
   std::string body = con->get_request_body();
   std::string uri = con->get_resource();
   std::string met = con->get_request().get_method();
-  WebInterfaceCallbackClient::http_response_struct response;
-  for(CallbackClientsMap::iterator i = callbackClients.begin();
-      i!= callbackClients.end();i++)
+  WebInterfaceCallbackClient::HttpResponse response;
+  for(CallbackClientsMap::iterator i = callback_clients_.begin();
+      i!= callback_clients_.end();i++)
   {
-        if(i->second->httpMessage(met,uri,body, &response)){
+        if(i->second->WebInterfaceHttpMessage(met,uri,body, &response)){
           break;
         }
   }
 
-  con->set_body(response.responseMessage);
-  con->set_status((websocketpp::http::status_code::value)response.responseCode);
+  con->set_body(response.response_message);
+  con->set_status((websocketpp::http::status_code::value)response.response_code);
 }
 
-void WebInterface::on_message(connection_hdl hdl, server::message_ptr msg){
-  string response;
-  for(CallbackClientsMap::iterator i = callbackClients.begin();
-      i!= callbackClients.end(); i++)
+void WebInterface::OnMessage(connection_hdl hdl, WebSocketServer::message_ptr msg){
+  LOG(DEBUG) << "WebInterface onMessage";
+  std::string response;
+  for(CallbackClientsMap::iterator i = callback_clients_.begin();
+      i!= callback_clients_.end(); i++)
   {
-    if(i->second->webSocketMessage(msg->get_payload(),&response)){
+    if(i->second->WebInterfaceWebSocketMessage(msg->get_payload(),&response)){
       break;
     };
   }
   if (response.length() > 0){
-    sendMessage(response);
+    SendMessage(response);
   }
 
-  printf("message\n" );
 }
 
 
-void WebInterface::start(){
-  mServer.start_accept();
+void WebInterface::Start(){
+  LOG(DEBUG) << "Webinterface start on port " << port_;
+  server_.start_accept();
   thread t([this]{
-    this->mServer.run();
+    this->server_.run();
   });
-  mServerThread = move(t);
+  server_thread_ = move(t);
 }
 
-void WebInterface::stop(){
-  mServer.stop();
-  mServerThread.join();
+void WebInterface::Stop(){
+  LOG(DEBUG) << "Webinterface stop ";
+  server_.stop();
+  server_thread_.join();
 }
 
-void WebInterface::sendMessage(std::string message){
-  printf("should send a message\n" );
+void WebInterface::SendMessage(std::string message){
+  lock_guard<mutex> guard(connection_mutex_);
+  LOG(DEBUG) << "WebInterface send message: " << message;
+  
+  for(auto con: connections_){
+    server_.send(con,message,websocketpp::frame::opcode::value::text);
+  }
 }

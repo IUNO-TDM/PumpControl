@@ -8,16 +8,16 @@ class PumpDriverSimulation: public PumpDriverInterface {
     PumpDriverSimulation();
     ~PumpDriverSimulation(void);
 
-    void init(const char* configTextPtr);
+    void Init(const char* config_text_ptr);
 
-    void deInit();
+    void DeInit();
 
-    void getPumps(std::map<int, PumpDefinition>* pumpDefinitions);
+    void GetPumps(std::map<int, PumpDriverInterface::PumpDefinition>* pump_definitions);
 
-    void setPump(int pumpNumber, float flow);
+    void SetPump(int pump_number, float flow);
 
   private:
-    std::map<int, int> mPumpToOutput{
+    std::map<int, int> pump_to_output_{
         { 1, 3 },
         { 2, 4 },
         { 3, 5 },
@@ -27,6 +27,6 @@ class PumpDriverSimulation: public PumpDriverInterface {
         { 7, 9 },
         { 8, 10 }};
       
-      const float FLOW = 1.43;
+      const float FLOW = 0.00143;
 };
 #endif

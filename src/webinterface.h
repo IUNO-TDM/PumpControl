@@ -1,31 +1,37 @@
 #include <unistd.h>
 #include <map>
+#include <set>
 #include <webinterfacecallbackclient.h>
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
-typedef websocketpp::server<websocketpp::config::asio> server;
 
 typedef std::map<std::string,WebInterfaceCallbackClient*> CallbackClientsMap;
-
+typedef websocketpp::server<websocketpp::config::asio> WebSocketServer;
 class WebInterface {
 public:
   WebInterface(int port);
-  void registerCallbackClient(WebInterfaceCallbackClient *);
-  void unregisterCallbackClient(WebInterfaceCallbackClient *);
+  ~WebInterface();
+  void RegisterCallbackClient(WebInterfaceCallbackClient *);
+  void UnregisterCallbackClient(WebInterfaceCallbackClient *);
 
-  void start();
-  void stop();
-  void sendMessage(std::string message);
+  void Start();
+  void Stop();
+  void SendMessage(std::string message);
 private:
-  CallbackClientsMap callbackClients;
-  int mPort;
-  websocketpp::server<websocketpp::config::asio> mServer;
-  std::thread mServerThread;
-  void on_open(websocketpp::connection_hdl hdl);
+  CallbackClientsMap callback_clients_;
+  int port_;
+  WebSocketServer server_;
+  std::thread server_thread_;
+  void OnOpen(websocketpp::connection_hdl hdl);
 
-  void on_close(websocketpp::connection_hdl hdl);
+  void OnClose(websocketpp::connection_hdl hdl);
 
-  void on_http(websocketpp::connection_hdl hdl);
+  void OnHttp(websocketpp::connection_hdl hdl);
 
-  void on_message(websocketpp::connection_hdl hdl, server::message_ptr msg);
+  void OnMessage(websocketpp::connection_hdl hdl, WebSocketServer::message_ptr msg);
+
+  typedef std::set<websocketpp::connection_hdl,std::owner_less<websocketpp::connection_hdl> > ConList;
+  ConList connections_;
+
+  websocketpp::lib::mutex connection_mutex_;
 };

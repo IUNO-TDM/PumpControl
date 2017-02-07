@@ -7,21 +7,21 @@ class PumpDriverInterface {
 public:
     typedef struct{
       //the minimum possible flow in ml/s
-      float minFlow;
+      float min_flow;
       //the maximum possible flow in ml/s
-      float maxFlow;
+      float max_flow;
       //the flow precision in ml/s
-      float flowPrecision;
+      float flow_precision;
     } PumpDefinition;
 
     virtual ~PumpDriverInterface(void){};
 
-    virtual void init(const char* configTextPtr) = 0;
+    virtual void Init(const char* config_text_ptr) = 0;
 
-    virtual void deInit() = 0;
+    virtual void DeInit() = 0;
 
-    virtual void getPumps(std::map<int,PumpDefinition>* pumpDefinitions) = 0;
+    virtual void GetPumps(std::map<int,PumpDefinition>* pump_definitions) = 0;
 
-    virtual void setPump(int pumpNumber, float flow) = 0;
+    virtual void SetPump(int pump_number, float flow) = 0;
 };
 #endif
