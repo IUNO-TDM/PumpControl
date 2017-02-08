@@ -33,7 +33,7 @@ void TimeProgramRunner::Run(){
                     break;
                 case TIME_PROGRAM_IDLE:
                     if(timeprogramrunner_state_ == TIME_PROGRAM_ACTIVE){
-                        callback_client_->TimeProgramRunnerProgramEnded();
+                        callback_client_->TimeProgramRunnerProgramEnded(programm_id_);
                     }
                     break;
                 default:
@@ -51,14 +51,14 @@ void TimeProgramRunner::Run(){
                     for(auto i: it->second){
                         pump_driver_->SetPump(i.first, i.second);
                     } 
-                    callback_client_->TimeProgramRunnerProgressUpdate((100 * it->first) / (--timeprogram_.end())->first);
+                    callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,(100 * it->first) / (--timeprogram_.end())->first);
                     it++;
                     if(it != timeprogram_.end()){
                         timeprogram_time = it->first;
                         wakeup_time_point = start_time + chrono::milliseconds(it->first);
                     }else{
                         timeprogramrunner_target_state_ = TIME_PROGRAM_IDLE;
-                        callback_client_->TimeProgramRunnerProgressUpdate(100);
+                        callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,100);
                         wakeup_time_point = chrono::steady_clock::now();
                     }
                 }   
@@ -92,11 +92,12 @@ void TimeProgramRunner::Shutdown(){
         condition_variable_.notify_one();
     }
 }
-void TimeProgramRunner::StartProgram(TimeProgram time_program){
+void TimeProgramRunner::StartProgram(const char* id, TimeProgram time_program){
     std::lock_guard<std::mutex> guard(state_machine_mutex_);
     if(timeprogramrunner_state_ == TIME_PROGRAM_IDLE){
         timeprogramrunner_target_state_ = TIME_PROGRAM_ACTIVE;
         timeprogram_ = time_program;
+        programm_id_ = id;
         condition_variable_.notify_one();
     }
 }

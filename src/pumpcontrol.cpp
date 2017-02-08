@@ -17,7 +17,7 @@ INITIALIZE_EASYLOGGINGPP
 int main(int argc, char* argv[])
 {
 
-  PumpControl *pump_control = new PumpControl(false);
+  PumpControl *pump_control = new PumpControl(true);
   LOG(INFO) << "My first info log using default logger";
   cin.get();
   
@@ -91,10 +91,12 @@ bool PumpControl::Start(const char*  recipe_json_string){
   bool success = false;
   success = SetPumpControlState(PUMP_STATE_ACTIVE);
   json j = json::parse(recipe_json_string);
-  LOG(DEBUG) << "Successfully imported recipe: " << j["id"];
-  int max_time = CreateTimeProgram(j,timeprogram_);
-
-  timeprogramrunner_->StartProgram(timeprogram_);
+  
+  int max_time = CreateTimeProgram(j["recipe"],timeprogram_);
+  string recipe_id = j["recipe"]["id"];
+  string order_name = j["orderName"];
+  LOG(DEBUG) << "Successfully imported recipe: " << recipe_id << " for order: " <<  order_name ;
+  timeprogramrunner_->StartProgram( order_name.c_str(),timeprogram_);
   
   return success;
 }
@@ -110,9 +112,8 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
     int sleep = line["sleep"].get<int>();
     int timing = line["timing"].get<int>();
 
-    if(timing == 0 || timing == 1 || timing == 2){
-      for(auto component: line["components"].get<std::vector<json>>())
-      {
+    if(timing == 0 || timing == 1){
+      for(auto component: line["components"].get<std::vector<json>>()) {
         string ingredient = component["ingredient"].get<string>();
         int amount = component["amount"].get<int>();
         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
@@ -127,9 +128,10 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
       }
 
       time = max_time;
-    } else if (timing == 3){
-      for(auto component: line["components"].get<std::vector<json>>())
-      {
+    } else if (timing == 2) {
+      
+    } else if (timing == 3) {
+      for(auto component: line["components"].get<std::vector<json>>()) {
         string ingredient = component["ingredient"].get<string>();
         int amount = component["amount"].get<int>();
         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
@@ -270,6 +272,11 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
                 printf("Pump %d should be switched to %s\n",nr,body.c_str() );
                 response->response_code = 200;
                 response->response_message = "SUCCESS";
+                
+                json json_message = json::object();
+                json_message["service"]["pump"] = nr;
+                json_message["service"]["flow"] = body=="true"?it->second.max_flow:0;
+                webinterface_->SendMessage(json_message.dump());
               } else {
                 response->response_code = 400;
                 response->response_message = "Requested Pump not available";
@@ -365,10 +372,11 @@ bool PumpControl::WebInterfaceWebSocketMessage(std::string message, std::string 
     return true;
 }
 
-void PumpControl::TimeProgramRunnerProgressUpdate(int percent){
-  LOG(DEBUG) << "TimeProgramRunnerProgressUpdate " << percent; 
+void PumpControl::TimeProgramRunnerProgressUpdate(const char* id, int percent){
+  LOG(DEBUG) << "TimeProgramRunnerProgressUpdate " << percent << " : " << id; 
   json json_message = json::object();
-  json_message["progress"] = percent;
+  json_message["progressUpdate"]["orderName"] = id;
+  json_message["progressUpdate"]["progress"] = percent;
   webinterface_->SendMessage(json_message.dump());
 
 }
@@ -387,6 +395,9 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRun
       break;
   }
 }
-void PumpControl::TimeProgramRunnerProgramEnded(){
-  LOG(DEBUG) << "TimeProgramRunnerProgramEnded";
+void PumpControl::TimeProgramRunnerProgramEnded(const char* id ){
+  LOG(DEBUG) << "TimeProgramRunnerProgramEnded" << id;
+  json json_message = json::object();
+  json_message["programEnded"]["orderName"] = id;
+  webinterface_->SendMessage(json_message.dump());
 }

@@ -22,7 +22,7 @@ class TimeProgramRunner {
         ~TimeProgramRunner();
         void Run();
         void Shutdown();
-        void StartProgram(TimeProgram time_program);
+        void StartProgram(const char* id, TimeProgram time_program);
         void EmergencyStopProgram();
         static const char* NameForState(TimeProgramRunnerState state);
         
@@ -37,11 +37,12 @@ class TimeProgramRunner {
         std::mutex time_lock_mutex_;
         std::mutex state_machine_mutex_;
         std::map<int,PumpDriverInterface::PumpDefinition> pumpdefinitions_;
+        const char* programm_id_;
 };
 
 class TimeProgramRunnerCallback{
     public:
-        virtual void TimeProgramRunnerProgressUpdate(int percent) = 0;
+        virtual void TimeProgramRunnerProgressUpdate(const char* id, int percent) = 0;
         virtual void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state) = 0;
-        virtual void TimeProgramRunnerProgramEnded() = 0;
+        virtual void TimeProgramRunnerProgramEnded(const char* id ) = 0;
 };
