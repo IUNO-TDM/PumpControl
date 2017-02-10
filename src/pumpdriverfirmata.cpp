@@ -12,18 +12,57 @@ PumpDriverFirmata::~PumpDriverFirmata(){
 };
 
 void PumpDriverFirmata::Init(const char *config_text_ptr){
+
+    std::vector<firmata::PortInfo> ports = firmata::FirmSerial::listPorts();
+
     LOG(INFO) << "init with config text" << config_text_ptr;
-    char *serial_port = new char[strlen(config_text_ptr)];
-    strcpy(serial_port,config_text_ptr);
-    firmata_ = firmata_new(serial_port); //init Firmata
-    while(!firmata_->isReady) //Wait until device is up
-    firmata_pull(firmata_);
+    // char *serial_port = new char[strlen(config_text_ptr)];
+    // strcpy(serial_port,config_text_ptr);
+    // firmata_ = firmata_new(serial_port); //init Firmata
+    // while(!firmata_->isReady) //Wait until device is up
+    // firmata_pull(firmata_);
+    
+    for (auto port : ports) {
+      std::cout << port.port << std::endl;
+
+      if (firmata_ != NULL) {
+        delete firmata_;
+        firmata_ = NULL;
+      }
+
+      try {
+        serialio_ = new firmata::FirmSerial(port.port.c_str());
+  #ifndef WIN32
+        if (serialio_->available()) {
+          sleep(3); // Seems necessary on linux
+          firmata_ = new firmata::Firmata<firmata::Base, firmata::I2C>(serialio_);
+        }
+  #else
+        firmata_ = new firmata::Firmata<firmata::Base, firmata::I2C>(serialio_);
+  #endif
+      } 
+      catch(firmata::IOException e) {
+        std::cout << e.what() << std::endl;
+      }
+      catch(firmata::NotOpenException e) {
+        std::cout << e.what() << std::endl;
+      }
+      if (firmata_ != NULL && firmata_->ready()) {
+        break;
+      }
+      
+    }
+
+    firmata_->setSamplingInterval(100);
+
 
     for(auto i : pump_to_output_){
       if(pump_is_pwm[i.first]){
-        firmata_pinMode(firmata_, i.second, MODE_PWM);
+        firmata_->pinMode(i.second, MODE_PWM);
+        // firmata_pinMode(firmata_, i.second, MODE_PWM);
       } else {
-        firmata_pinMode(firmata_, i.second, MODE_OUTPUT);
+        firmata_->pinMode(i.second, MODE_OUTPUT);
+        // firmata_pinMode(firmata_, i.second, MODE_OUTPUT);
       }
       
     }
@@ -31,9 +70,11 @@ void PumpDriverFirmata::Init(const char *config_text_ptr){
     this_thread::sleep_for(chrono::seconds(2));
     for(auto i : pump_to_output_){
       if(pump_is_pwm[i.first]){
-        firmata_analogWrite(firmata_, i.second, 0);
+        firmata_->analogWrite(i.second,0);
+        // firmata_analogWrite(firmata_, i.second, 0);
       } else {
-        firmata_digitalWrite(firmata_, i.second, LOW);
+        firmata_->digitalWrite(i.second,LOW);
+        // firmata_digitalWrite(firmata_, i.second, LOW);
       }
     }
 };
@@ -41,9 +82,11 @@ void PumpDriverFirmata::Init(const char *config_text_ptr){
 void PumpDriverFirmata::DeInit(){
     for(auto i : pump_to_output_){
       if(pump_is_pwm[i.first]){
-        firmata_analogWrite(firmata_, i.second, 0);
+        firmata_->analogWrite(i.second,0);
+        // firmata_analogWrite(firmata_, i.second, 0);
       } else {
-        firmata_digitalWrite(firmata_, i.second, LOW);
+        firmata_->digitalWrite(i.second,LOW);
+        // firmata_digitalWrite(firmata_, i.second, LOW);
       }
     }
 };
@@ -70,13 +113,16 @@ void PumpDriverFirmata::SetPump(int pump_number, float flow){
     LOG(INFO) << "setPump " << pump_number << " : "<< flow;
     if(pump_is_pwm[pump_number]){
       if(flow < MIN_FLOW){
-        firmata_analogWrite(firmata_, pump_to_output_[pump_number], 0);
+        firmata_->analogWrite(pump_to_output_[pump_number], 0);
+        // firmata_analogWrite(firmata_, pump_to_output_[pump_number], 0);
       } else {
-        int pwm_value = flow / (MAX_FLOW - MIN_FLOW) * 128 + 127;
-        firmata_analogWrite(firmata_, pump_to_output_[pump_number], pwm_value);
+        int pwm_value = (flow - MIN_FLOW) / (MAX_FLOW - MIN_FLOW) * 128 + 127;
+        firmata_->analogWrite(pump_to_output_[pump_number], pwm_value);
+        // firmata_analogWrite(firmata_, pump_to_output_[pump_number], pwm_value);
       }
     } else {
-      firmata_digitalWrite(firmata_, pump_to_output_[pump_number], (flow>0) ? HIGH : LOW);
+      firmata_->digitalWrite(pump_to_output_[pump_number], (flow>0) ? HIGH : LOW);
+      // firmata_digitalWrite(firmata_, pump_to_output_[pump_number], (flow>0) ? HIGH : LOW);
     }
     
 };

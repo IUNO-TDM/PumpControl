@@ -2,6 +2,7 @@
 #define PUMPDRIVERFIRMATA_H
 #include <pumpdriverinterface.h>
 #include "firmata.h"
+#include "firmserial.h"
 
 class PumpDriverFirmata: public PumpDriverInterface {
   public:
@@ -17,7 +18,9 @@ class PumpDriverFirmata: public PumpDriverInterface {
     void SetPump(int pump_number, float flow);
 
   private:
-    t_firmata     *firmata_;
+    // t_firmata     *firmata_;
+    firmata::Firmata<firmata::Base, firmata::I2C>* firmata_ = NULL;
+	  firmata::FirmSerial* serialio_;
     
     const float MIN_FLOW = 0.0007;
     const float MAX_FLOW = 0.00143;
@@ -38,8 +41,8 @@ class PumpDriverFirmata: public PumpDriverInterface {
       { 3, true },
       { 4, true },
       { 5, false},
-      { 6, true },
-      { 7, true },
+      { 6, false },
+      { 7, false },
       { 8, true }};  
       //3 PWM
       //4 IO

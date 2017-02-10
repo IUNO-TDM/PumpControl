@@ -17,7 +17,7 @@ INITIALIZE_EASYLOGGINGPP
 int main(int argc, char* argv[])
 {
 
-  PumpControl *pump_control = new PumpControl(true);
+  PumpControl *pump_control = new PumpControl(false);
   LOG(INFO) << "My first info log using default logger";
   cin.get();
   

@@ -1,0 +1,2 @@
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar qc libfirmatacpp.a  CMakeFiles/firmatacpp.dir/src/firmbase.cpp.o CMakeFiles/firmatacpp.dir/src/firmi2c.cpp.o CMakeFiles/firmatacpp.dir/src/firmserial.cpp.o
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib libfirmatacpp.a
