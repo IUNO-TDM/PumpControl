@@ -13,7 +13,7 @@ namespace firmata {
 	  m_serial.setTimeout(t);
 	  m_serial.waitReadable();
 	  int count = m_serial.available();
-	  t.read_timeout_constant = 250;
+	  t.read_timeout_constant = 1000;
 	  m_serial.setTimeout(t);
 #endif
 	}

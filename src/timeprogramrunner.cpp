@@ -65,9 +65,9 @@ void TimeProgramRunner::Run(){
                 break;
             case TIME_PROGRAM_IDLE:
                 {
-                    for(auto i : pumpdefinitions_){
-                        pump_driver_->SetPump(i.first, 0);
-                    }
+                    // for(auto i : pumpdefinitions_){
+                    //     pump_driver_->SetPump(i.first, 0);
+                    // }
                     wakeup_time_point = chrono::time_point<chrono::steady_clock>::max();
                 } 
                 break;

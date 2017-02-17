@@ -3,6 +3,7 @@
 #include "json.hpp"
 #include <unistd.h>
 #include <map>
+#include <vector>
 #include <thread>
 #include "webinterface.h"
 #include "easylogging++.h"
@@ -73,4 +74,7 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
     void Init(const char* serial_port, bool simulation);
     bool Start(const char* receipt_json_string);
     const char* NameForPumpControlState(PumpControlState state);
+    int GetMaxElement(std::map<int,float> list);
+    int GetMinElement(std::map<int, float> list);
+    void SeparateTooFastIngredients(std::vector<int> *separated_pumps, std::map<int, float> min_list, std::map<int, float> max_list);
 };

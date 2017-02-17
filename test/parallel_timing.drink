@@ -1,0 +1,49 @@
+{
+  "orderName": "Christians Drink",
+  "recipe": {
+    "id":"TestProgram",
+    "lines":
+      [
+
+        {
+          "components":
+            [
+              {
+                "ingredient":"Orangensaft",
+                "amount":25
+              },
+              {
+                "ingredient":"Apfelsaft",
+                "amount":1
+              },
+              {
+                "ingredient":"Sprudel",
+                "amount":20
+              },
+              {
+                "ingredient":"Kirschsaft",
+                "amount":10
+              },
+              {
+                "ingredient":"Bananensaft",
+                "amount":2
+              },
+              {
+                "ingredient":"Johannisbeersaft",
+                "amount":3
+              },
+              {
+                "ingredient":"Cola",
+                "amount":25
+              },
+              {
+                "ingredient":"Fanta",
+                "amount":5
+              }
+            ],
+          "timing":2,
+          "sleep":0
+        }
+      ]
+  }
+}

@@ -22,8 +22,8 @@ void PumpDriverFirmata::Init(const char *config_text_ptr){
     // while(!firmata_->isReady) //Wait until device is up
     // firmata_pull(firmata_);
     
-    for (auto port : ports) {
-      std::cout << port.port << std::endl;
+    // for (auto port : ports) {
+      // std::cout << port.port << std::endl;
 
       if (firmata_ != NULL) {
         delete firmata_;
@@ -31,15 +31,11 @@ void PumpDriverFirmata::Init(const char *config_text_ptr){
       }
 
       try {
-        serialio_ = new firmata::FirmSerial(port.port.c_str());
-  #ifndef WIN32
+        serialio_ = new firmata::FirmSerial(config_text_ptr);
         if (serialio_->available()) {
           sleep(3); // Seems necessary on linux
           firmata_ = new firmata::Firmata<firmata::Base, firmata::I2C>(serialio_);
         }
-  #else
-        firmata_ = new firmata::Firmata<firmata::Base, firmata::I2C>(serialio_);
-  #endif
       } 
       catch(firmata::IOException e) {
         std::cout << e.what() << std::endl;
@@ -47,11 +43,11 @@ void PumpDriverFirmata::Init(const char *config_text_ptr){
       catch(firmata::NotOpenException e) {
         std::cout << e.what() << std::endl;
       }
-      if (firmata_ != NULL && firmata_->ready()) {
-        break;
-      }
+      // if (firmata_ != NULL && firmata_->ready()) {
+      //   break;
+      // }
       
-    }
+    // }
 
     firmata_->setSamplingInterval(100);
 
@@ -104,7 +100,7 @@ void PumpDriverFirmata::GetPumps(std::map<int, PumpDriverInterface::PumpDefiniti
     }else{
       pump_definitions->at(i.first).min_flow = MAX_FLOW;
       pump_definitions->at(i.first).max_flow = MAX_FLOW;
-      pump_definitions->at(i.first).flow_precision = 0;
+      pump_definitions->at(i.first).flow_precision = MAX_FLOW;
     }
   }
 };

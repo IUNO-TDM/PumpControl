@@ -7,6 +7,8 @@
 #include <csignal>
 #include "pumpdriversimulation.h"
 #include "pumpdriverfirmata.h"
+#include <climits>
+#include <cfloat>
 
 using namespace std;
 using namespace nlohmann;
@@ -130,6 +132,67 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
       time = max_time;
     } else if (timing == 2) {
       
+      auto component_vector = line["components"].get<std::vector<json>>();
+      map<int, float> min_time_map;
+      map<int, float> max_time_map;
+      for(auto component: component_vector){
+        int amount = component["amount"].get<int>();
+        string ingredient = component["ingredient"].get<string>();
+        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+        float max_flow = pumpdefinitions_[pump_number].max_flow;
+        float min_flow = pumpdefinitions_[pump_number].min_flow;
+
+        min_time_map[pump_number] =  ((float)amount) / max_flow ;
+        max_time_map[pump_number] = ((float)amount) / min_flow ;
+      }
+      LOG(DEBUG) << "min_time_map:";
+      for(auto i : min_time_map){
+        LOG(DEBUG) << i.first << " : " << i.second;
+      }
+
+      LOG(DEBUG) << "max_time_map:";
+      for(auto i : max_time_map){
+        LOG(DEBUG) << i.first << " : " << i.second;
+      }
+
+      vector<int> separated_pumps;
+      SeparateTooFastIngredients(&separated_pumps,min_time_map, max_time_map);
+      LOG(DEBUG) << "separated_pumps:";
+      for(auto i : separated_pumps){
+        LOG(DEBUG) << i;
+      }
+      float max_duration = min_time_map[GetMaxElement(min_time_map)];
+      int end_time = time + (int)max_duration;
+      for(auto component: component_vector) {
+        string ingredient = component["ingredient"].get<string>();
+        int amount = component["amount"].get<int>();
+        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+
+        if(find(separated_pumps.begin(), separated_pumps.end(),pump_number) != separated_pumps.end() ||
+            pumpdefinitions_[pump_number].min_flow == pumpdefinitions_[pump_number].max_flow ||
+            pumpdefinitions_[pump_number].flow_precision == 0){
+          float flow =  pumpdefinitions_[pump_number].min_flow;
+          timeprogram[time][pump_number] = flow;
+          int end_time = time + amount / flow;
+          timeprogram[end_time][pump_number] = 0;
+        }else {
+          float flow = ((float)amount) / max_duration;
+          int a = flow / pumpdefinitions_[pump_number].flow_precision;
+          float difFlow = flow - pumpdefinitions_[pump_number].flow_precision * (float)a;
+          float difAmount = difFlow *  max_duration;
+          LOG(DEBUG) <<"cal Flow: " << flow << "; real Flow: " << pumpdefinitions_[pump_number].flow_precision * a; 
+          LOG(DEBUG) <<"dif Flow: " << difFlow << "; difAmount: " << difAmount; 
+          int xtime = end_time;
+          if(difAmount > 0.5){
+              flow = pumpdefinitions_[pump_number].flow_precision * (float)(a+1);
+              xtime = (float)amount / flow + time;
+          }
+          timeprogram[time][pump_number] = flow;
+          timeprogram[xtime][pump_number] = 0;
+        }
+      }
+
+      time = end_time;
     } else if (timing == 3) {
       for(auto component: line["components"].get<std::vector<json>>()) {
         string ingredient = component["ingredient"].get<string>();
@@ -154,6 +217,44 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
   return time;
 }
 
+
+
+
+int PumpControl::GetMaxElement(map<int,float> list){
+  float max = FLT_MIN;
+  int rv = 0;
+  for (auto it: list){
+    if(it.second > max){
+      rv = it.first;
+      max = it.second;
+    }
+  }
+  return rv;
+}
+
+int PumpControl::GetMinElement(map<int, float> list){
+  float max = FLT_MAX;
+  int rv = 0;
+  for (auto it: list){
+    if(it.second < max){
+      rv = it.first;
+      max = it.second;
+    }
+  }
+  return rv;
+}
+
+void PumpControl::SeparateTooFastIngredients(vector<int> *separated_pumps, map<int, float> min_list, map<int, float> max_list){
+  int smallest_max_element = GetMinElement(max_list);
+  int biggest_min_element = GetMaxElement(min_list);
+  LOG(DEBUG) << "smallest max " << max_list[smallest_max_element] << "bigges min " << min_list[biggest_min_element];
+  if(max_list[smallest_max_element] < min_list[biggest_min_element]){
+    separated_pumps->push_back(smallest_max_element);
+    min_list.erase(smallest_max_element);
+    max_list.erase(smallest_max_element);
+    SeparateTooFastIngredients(separated_pumps, min_list, max_list);
+  }
+}
 
 
 bool PumpControl::SetPumpControlState(PumpControlState state){

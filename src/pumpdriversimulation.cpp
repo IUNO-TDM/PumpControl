@@ -18,14 +18,20 @@ void PumpDriverSimulation::DeInit(){
 };
 
 void PumpDriverSimulation::GetPumps(std::map<int, PumpDriverInterface::PumpDefinition>* pump_definitions){
-    if(pump_definitions->size() > 0){
+  if(pump_definitions->size() > 0){
     pump_definitions->clear();
   }
   for(auto i : pump_to_output_){
     (*pump_definitions)[i.first] = PumpDefinition();
-    pump_definitions->at(i.first).min_flow = FLOW;
-    pump_definitions->at(i.first).max_flow = FLOW;
-    pump_definitions->at(i.first).flow_precision = 0;
+    if(pump_is_pwm[i.first]){
+      pump_definitions->at(i.first).min_flow = MIN_FLOW;
+      pump_definitions->at(i.first).max_flow = MAX_FLOW;
+      pump_definitions->at(i.first).flow_precision = FLOW_PRECISION;
+    }else{
+      pump_definitions->at(i.first).min_flow = MAX_FLOW;
+      pump_definitions->at(i.first).max_flow = MAX_FLOW;
+      pump_definitions->at(i.first).flow_precision = 0;
+    }
   }
 };
  
