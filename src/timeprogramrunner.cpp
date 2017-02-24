@@ -4,7 +4,7 @@ using namespace std;
 TimeProgramRunner::TimeProgramRunner(TimeProgramRunnerCallback* callback_client, PumpDriverInterface *pump_driver){
     callback_client_ = callback_client;
     pump_driver_ = pump_driver;
-    pump_driver_->GetPumps(&pumpdefinitions_);
+    // pump_definitions_ = pump_driver_->GetPumps();
 }
 TimeProgramRunner::~TimeProgramRunner(){
 
@@ -73,8 +73,9 @@ void TimeProgramRunner::Run(){
                 break;
             case TIME_PROGRAM_STOPPING:
                 {
-                    for(auto i : pumpdefinitions_){
-                        pump_driver_->SetPump(i.first, 0);
+                    int pumpCount = pump_driver_->GetPumpCount();
+                    for(int i = 1; i<= pumpCount; i++){
+                        pump_driver_->SetPump(i, 0);
                     }
                 }
                 break;

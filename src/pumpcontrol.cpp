@@ -4,22 +4,106 @@
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
+#include <boost/program_options.hpp>
 #include <csignal>
 #include "pumpdriversimulation.h"
 #include "pumpdriverfirmata.h"
 #include <climits>
 #include <cfloat>
+#include <stdlib.h>
+
+
 
 using namespace std;
 using namespace nlohmann;
-
+namespace po = boost::program_options;
 
 INITIALIZE_EASYLOGGINGPP
 
 int main(int argc, char* argv[])
 {
 
-  PumpControl *pump_control = new PumpControl(false);
+  bool simulation;
+  int websocket_port;
+  string serial_port;
+  string config_file;
+  string homeDir = getenv("HOME");
+  string std_conf_location = homeDir + "/pumpcontrol.settings.conf";
+  po::options_description generic("Generic options");
+        generic.add_options()
+            ("version,v", "print version string")
+            ("help", "produce help message")
+            ("config,c", po::value<string>(&config_file)->default_value(std_conf_location),
+                  "name of a file of a configuration.")
+            ;
+
+  po::options_description config("Configuration");
+        config.add_options()
+            ("simulation", po::value<bool>(&simulation)->default_value(false), 
+                  "simulation pump driver active")
+            ("serialPort", 
+                 po::value< string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"), 
+                 "the full serial Port path")
+            ("webSocketPort", 
+                 po::value<int>(&websocket_port)->default_value(9002), 
+                 "The port of the listening WebSocket")
+            ;
+
+
+  std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions;
+  po::options_description pump_config("PumpConfiguration");
+  string pump_config_str = "pump.configuration.";
+  for(int i = 1; i <=8; i++){
+    pump_definitions[i] = PumpDriverInterface::PumpDefinition();
+    pump_config.add_options()
+            ((pump_config_str + to_string(i) + ".output").c_str() , po::value<int>(&(pump_definitions[i].output))->default_value(i), 
+                  (string("Output Pin for pump number ") + to_string(i)).c_str())
+            ((pump_config_str + to_string(i) + ".flowPrecision").c_str() , po::value<float>(&(pump_definitions[i].flow_precision))->default_value((0.00143-0.0007)/128), 
+                  (string("Flow Precision for pump number ") + to_string(i)).c_str())
+            ((pump_config_str + to_string(i) + ".min_flow").c_str() , po::value<float>(&(pump_definitions[i].min_flow))->default_value(0.0007), 
+                  (string("Min Flow for pump number ") + to_string(i)).c_str())
+            ((pump_config_str + to_string(i) + ".max_flow").c_str() , po::value<float>(&(pump_definitions[i].max_flow))->default_value(0.00143), 
+                  (string("Max Flow for pump number ") + to_string(i)).c_str());
+                  
+  }  
+
+  po::options_description cmdline_options;
+  cmdline_options.add(generic).add(config);
+
+  po::options_description config_file_options;
+  config_file_options.add(config).add(pump_config);
+
+  po::options_description visible("Allowed options");
+  visible.add(generic).add(config);
+  po::variables_map vm;
+  store(po::command_line_parser(argc, argv).
+        options(cmdline_options).run(), vm);
+  notify(vm);
+
+  ifstream ifs(config_file.c_str());
+  if (!ifs)
+  {
+      LOG(INFO) << "Can not open config file: " << config_file;
+  }
+  else
+  {
+      store(parse_config_file(ifs, config_file_options), vm);
+      notify(vm);
+  }
+
+  if (vm.count("help")) {
+      cout << visible << "\n";
+      return 0;
+  }
+
+  if (vm.count("version")) {
+      cout << "Multiple sources example, version 1.0\n";
+      return 0;
+  }
+
+  PumpControl *pump_control = new PumpControl(serial_port.c_str(), simulation, websocket_port, pump_definitions);
+
+  
   LOG(INFO) << "My first info log using default logger";
   cin.get();
   
@@ -28,17 +112,9 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-PumpControl::PumpControl(const char* serialPort)
-{
-  Init(serialPort, false);
-}
 
-PumpControl::PumpControl(){
-  Init(STD_SERIAL_PORT, false);
-}
-
-PumpControl::PumpControl(bool simulation){
-  Init(STD_SERIAL_PORT, simulation);
+PumpControl::PumpControl(const char* serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
+  Init(serial_port, simulation, websocket_port, pump_definitions);
 }
 
 PumpControl::~PumpControl(){
@@ -54,18 +130,18 @@ PumpControl::~PumpControl(){
 }
 
 
-void PumpControl::Init(const char* serialPort, bool simulation){
+void PumpControl::Init(const char* serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
   simulation_ = simulation;
-  uint len = strlen(serialPort);
+  uint len = strlen(serial_port);
   serialport_ = new char(len);
-  strcpy(serialport_, serialPort);
+  strcpy(serialport_, serial_port);
 
   for(auto i: kPumpIngredientsInit){
     pump_ingredients_bimap_.insert(IngredientsBiMap::value_type(i.first, i.second));
   }
 
 
-  webinterface_= new WebInterface(9002);
+  webinterface_= new WebInterface(websocket_port);
   SetClientName("PumpControl");
   webinterface_->RegisterCallbackClient(this);
   webinterface_->Start();
@@ -82,9 +158,9 @@ void PumpControl::Init(const char* serialPort, bool simulation){
     pumpdriver_ = new PumpDriverFirmata();
     config_string = "/dev/tty.usbserial-A104WO1O";
   }
+  pump_definitions_ = pump_definitions;
+  pumpdriver_->Init(config_string.c_str(), pump_definitions_);
   
-  pumpdriver_->Init(config_string.c_str());
-  pumpdriver_->GetPumps(&pumpdefinitions_);
   timeprogramrunner_ = new TimeProgramRunner(this,pumpdriver_);
   timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run,timeprogramrunner_);
 }
@@ -119,7 +195,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
         string ingredient = component["ingredient"].get<string>();
         int amount = component["amount"].get<int>();
         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
-        float max_flow =  pumpdefinitions_[pump_number].max_flow;
+        float max_flow =  pump_definitions_[pump_number].max_flow;
         timeprogram[time][pump_number] = max_flow;
         int end_time = time + amount / max_flow;
         timeprogram[end_time][pump_number] = 0;
@@ -139,8 +215,8 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
         int amount = component["amount"].get<int>();
         string ingredient = component["ingredient"].get<string>();
         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
-        float max_flow = pumpdefinitions_[pump_number].max_flow;
-        float min_flow = pumpdefinitions_[pump_number].min_flow;
+        float max_flow = pump_definitions_[pump_number].max_flow;
+        float min_flow = pump_definitions_[pump_number].min_flow;
 
         min_time_map[pump_number] =  ((float)amount) / max_flow ;
         max_time_map[pump_number] = ((float)amount) / min_flow ;
@@ -169,22 +245,22 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
 
         if(find(separated_pumps.begin(), separated_pumps.end(),pump_number) != separated_pumps.end() ||
-            pumpdefinitions_[pump_number].min_flow == pumpdefinitions_[pump_number].max_flow ||
-            pumpdefinitions_[pump_number].flow_precision == 0){
-          float flow =  pumpdefinitions_[pump_number].min_flow;
+            pump_definitions_[pump_number].min_flow == pump_definitions_[pump_number].max_flow ||
+            pump_definitions_[pump_number].flow_precision == 0){
+          float flow =  pump_definitions_[pump_number].min_flow;
           timeprogram[time][pump_number] = flow;
           int end_time = time + amount / flow;
           timeprogram[end_time][pump_number] = 0;
         }else {
           float flow = ((float)amount) / max_duration;
-          int a = flow / pumpdefinitions_[pump_number].flow_precision;
-          float difFlow = flow - pumpdefinitions_[pump_number].flow_precision * (float)a;
+          int a = flow / pump_definitions_[pump_number].flow_precision;
+          float difFlow = flow - pump_definitions_[pump_number].flow_precision * (float)a;
           float difAmount = difFlow *  max_duration;
-          LOG(DEBUG) <<"cal Flow: " << flow << "; real Flow: " << pumpdefinitions_[pump_number].flow_precision * a; 
+          LOG(DEBUG) <<"cal Flow: " << flow << "; real Flow: " << pump_definitions_[pump_number].flow_precision * a; 
           LOG(DEBUG) <<"dif Flow: " << difFlow << "; difAmount: " << difAmount; 
           int xtime = end_time;
           if(difAmount > 0.5){
-              flow = pumpdefinitions_[pump_number].flow_precision * (float)(a+1);
+              flow = pump_definitions_[pump_number].flow_precision * (float)(a+1);
               xtime = (float)amount / flow + time;
           }
           timeprogram[time][pump_number] = flow;
@@ -198,7 +274,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
         string ingredient = component["ingredient"].get<string>();
         int amount = component["amount"].get<int>();
         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
-        float max_flow =  pumpdefinitions_[pump_number].max_flow;
+        float max_flow =  pump_definitions_[pump_number].max_flow;
         timeprogram[time][pump_number] = max_flow;
         int end_time = time + amount / max_flow;
         timeprogram[end_time][pump_number] = 0;
@@ -346,7 +422,7 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
       }else if (boost::starts_with(path,"/pumps")){
         if (method == "GET"){
             json responseJson = json::object();
-            for(auto i: pumpdefinitions_){
+            for(auto i: pump_definitions_){
               char key[3];
               sprintf(key,"%d",i.first);
               json pump = json::object();
@@ -367,8 +443,8 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
             method == "PUT" && (body == "true" || body == "false")){
             int nr = stoi(what[1].str());
             if(pumpcontrol_state_ == PUMP_STATE_SERVICE){
-              auto it = pumpdefinitions_.find(nr);
-              if(it != pumpdefinitions_.end()){
+              auto it = pump_definitions_.find(nr);
+              if(it != pump_definitions_.end()){
                 pumpdriver_->SetPump(nr,body=="true"?it->second.max_flow:0);
                 printf("Pump %d should be switched to %s\n",nr,body.c_str() );
                 response->response_code = 200;

@@ -24,9 +24,11 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
       PUMP_STATE_ERROR = 4
     }PumpControlState;
 
-    PumpControl();
-    PumpControl(const char* serialPort);
-    PumpControl(bool simulation);
+    
+
+    // PumpControl();
+    PumpControl(const char* serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_configurations);
+    // PumpControl(bool simulation);
     ~PumpControl();
 
     //WebInterfaceCallbackClient
@@ -40,7 +42,8 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
   private:
     PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
     PumpDriverInterface * pumpdriver_;
-    std::map<int,PumpDriverInterface::PumpDefinition> pumpdefinitions_;
+    std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions_;
+    
     WebInterface * webinterface_;
     TimeProgramRunner * timeprogramrunner_;
 
@@ -49,7 +52,7 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
     char* serialport_;
     bool simulation_;
     
-    const char * STD_SERIAL_PORT = "/dev/tty.usbserial-A104WO1O";
+    // const char * STD_SERIAL_PORT = "/dev/tty.usbserial-A104WO1O";
     typedef boost::bimap<int,std::string> IngredientsBiMap;
     IngredientsBiMap pump_ingredients_bimap_;
     const std::map<int,std::string> kPumpIngredientsInit  {
@@ -71,7 +74,7 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
     void TimerFired( int time);
     void TimerEnded();
     bool SetPumpControlState(PumpControlState state);
-    void Init(const char* serial_port, bool simulation);
+    void Init(const char* serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_configurations);
     bool Start(const char* receipt_json_string);
     const char* NameForPumpControlState(PumpControlState state);
     int GetMaxElement(std::map<int,float> list);

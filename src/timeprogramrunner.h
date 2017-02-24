@@ -36,7 +36,7 @@ class TimeProgramRunner {
         std::condition_variable condition_variable_;
         std::mutex time_lock_mutex_;
         std::mutex state_machine_mutex_;
-        std::map<int,PumpDriverInterface::PumpDefinition> pumpdefinitions_;
+        // std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions_;
         const char* programm_id_;
 };
 
