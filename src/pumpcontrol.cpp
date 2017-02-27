@@ -175,6 +175,7 @@ void PumpControl::Init(string serial_port, bool simulation, int websocket_port, 
       timeprogramrunner_ = new TimeProgramRunner(this,pumpdriver_);
       timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run,timeprogramrunner_);
     }else{
+      SetPumpControlState(PUMP_STATE_ERROR);
       LOG(ERROR)<< "Could not initialize the Pump Driver. You can now close the application.";
     }
     
@@ -191,10 +192,15 @@ bool PumpControl::Start(const char*  recipe_json_string){
   json j = json::parse(recipe_json_string);
   
   int max_time = CreateTimeProgram(j["recipe"],timeprogram_);
-  string recipe_id = j["recipe"]["id"];
-  string order_name = j["orderName"];
-  LOG(DEBUG) << "Successfully imported recipe: " << recipe_id << " for order: " <<  order_name ;
-  timeprogramrunner_->StartProgram( order_name.c_str(),timeprogram_);
+  if(max_time > 0){
+    string recipe_id = j["recipe"]["id"];
+    string order_name = j["orderName"];
+    LOG(DEBUG) << "Successfully imported recipe: " << recipe_id << " for order: " <<  order_name ;
+    timeprogramrunner_->StartProgram( order_name.c_str(),timeprogram_); 
+  }else{
+    SetPumpControlState(PUMP_STATE_IDLE);
+  }
+  
   
   return success;
 }
@@ -204,111 +210,122 @@ bool PumpControl::Start(const char*  recipe_json_string){
 int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timeprogram){
   LOG(DEBUG) << "createTimeProgram";
   int time = 0;
-  for(auto line: j["lines"].get<vector<json>>())
-  {
-    int max_time = time;
-    int sleep = line["sleep"].get<int>();
-    int timing = line["timing"].get<int>();
+  try{
+    for(auto line: j["lines"].get<vector<json>>())
+    {
+      int max_time = time;
+      int sleep = line["sleep"].get<int>();
+      int timing = line["timing"].get<int>();
 
-    if(timing == 0 || timing == 1){
-      for(auto component: line["components"].get<std::vector<json>>()) {
-        string ingredient = component["ingredient"].get<string>();
-        int amount = component["amount"].get<int>();
-        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
-        float max_flow =  pump_definitions_[pump_number].max_flow;
-        timeprogram[time][pump_number] = max_flow;
-        int end_time = time + amount / max_flow;
-        timeprogram[end_time][pump_number] = 0;
-        
-        if (end_time > max_time){
-          max_time = end_time;
-        }
-      }
-
-      time = max_time;
-    } else if (timing == 2) {
-      
-      auto component_vector = line["components"].get<std::vector<json>>();
-      map<int, float> min_time_map;
-      map<int, float> max_time_map;
-      for(auto component: component_vector){
-        int amount = component["amount"].get<int>();
-        string ingredient = component["ingredient"].get<string>();
-        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
-        float max_flow = pump_definitions_[pump_number].max_flow;
-        float min_flow = pump_definitions_[pump_number].min_flow;
-
-        min_time_map[pump_number] =  ((float)amount) / max_flow ;
-        max_time_map[pump_number] = ((float)amount) / min_flow ;
-      }
-      LOG(DEBUG) << "min_time_map:";
-      for(auto i : min_time_map){
-        LOG(DEBUG) << i.first << " : " << i.second;
-      }
-
-      LOG(DEBUG) << "max_time_map:";
-      for(auto i : max_time_map){
-        LOG(DEBUG) << i.first << " : " << i.second;
-      }
-
-      vector<int> separated_pumps;
-      SeparateTooFastIngredients(&separated_pumps,min_time_map, max_time_map);
-      LOG(DEBUG) << "separated_pumps:";
-      for(auto i : separated_pumps){
-        LOG(DEBUG) << i;
-      }
-      float max_duration = min_time_map[GetMaxElement(min_time_map)];
-      int end_time = time + (int)max_duration;
-      for(auto component: component_vector) {
-        string ingredient = component["ingredient"].get<string>();
-        int amount = component["amount"].get<int>();
-        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
-
-        if(find(separated_pumps.begin(), separated_pumps.end(),pump_number) != separated_pumps.end() ||
-            pump_definitions_[pump_number].min_flow == pump_definitions_[pump_number].max_flow ||
-            pump_definitions_[pump_number].flow_precision == 0){
-          float flow =  pump_definitions_[pump_number].min_flow;
-          timeprogram[time][pump_number] = flow;
-          int end_time = time + amount / flow;
+      if(timing == 0 || timing == 1){
+        for(auto component: line["components"].get<std::vector<json>>()) {
+          string ingredient = component["ingredient"].get<string>();
+          int amount = component["amount"].get<int>();
+          int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+          float max_flow =  pump_definitions_[pump_number].max_flow;
+          timeprogram[time][pump_number] = max_flow;
+          int end_time = time + amount / max_flow;
           timeprogram[end_time][pump_number] = 0;
-        }else {
-          float flow = ((float)amount) / max_duration;
-          int a = flow / pump_definitions_[pump_number].flow_precision;
-          float difFlow = flow - pump_definitions_[pump_number].flow_precision * (float)a;
-          float difAmount = difFlow *  max_duration;
-          LOG(DEBUG) <<"cal Flow: " << flow << "; real Flow: " << pump_definitions_[pump_number].flow_precision * a; 
-          LOG(DEBUG) <<"dif Flow: " << difFlow << "; difAmount: " << difAmount; 
-          int xtime = end_time;
-          if(difAmount > 0.5){
-              flow = pump_definitions_[pump_number].flow_precision * (float)(a+1);
-              xtime = (float)amount / flow + time;
+          
+          if (end_time > max_time){
+            max_time = end_time;
           }
-          timeprogram[time][pump_number] = flow;
-          timeprogram[xtime][pump_number] = 0;
-        }
-      }
-
-      time = end_time;
-    } else if (timing == 3) {
-      for(auto component: line["components"].get<std::vector<json>>()) {
-        string ingredient = component["ingredient"].get<string>();
-        int amount = component["amount"].get<int>();
-        int pump_number = pump_ingredients_bimap_.right.at(ingredient);
-        float max_flow =  pump_definitions_[pump_number].max_flow;
-        timeprogram[time][pump_number] = max_flow;
-        int end_time = time + amount / max_flow;
-        timeprogram[end_time][pump_number] = 0;
-        
-        if (end_time > max_time){
-          max_time = end_time;
         }
 
         time = max_time;
-      }
-    }
+      } else if (timing == 2) {
+        
+        auto component_vector = line["components"].get<std::vector<json>>();
+        map<int, float> min_time_map;
+        map<int, float> max_time_map;
+        for(auto component: component_vector){
+          int amount = component["amount"].get<int>();
+          string ingredient = component["ingredient"].get<string>();
+          int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+          float max_flow = pump_definitions_[pump_number].max_flow;
+          float min_flow = pump_definitions_[pump_number].min_flow;
 
-    time += sleep + 1;
-  }
+          min_time_map[pump_number] =  ((float)amount) / max_flow ;
+          max_time_map[pump_number] = ((float)amount) / min_flow ;
+        }
+        LOG(DEBUG) << "min_time_map:";
+        for(auto i : min_time_map){
+          LOG(DEBUG) << i.first << " : " << i.second;
+        }
+
+        LOG(DEBUG) << "max_time_map:";
+        for(auto i : max_time_map){
+          LOG(DEBUG) << i.first << " : " << i.second;
+        }
+
+        vector<int> separated_pumps;
+        SeparateTooFastIngredients(&separated_pumps,min_time_map, max_time_map);
+        LOG(DEBUG) << "separated_pumps:";
+        for(auto i : separated_pumps){
+          LOG(DEBUG) << i;
+        }
+        float max_duration = min_time_map[GetMaxElement(min_time_map)];
+        int end_time = time + (int)max_duration;
+        for(auto component: component_vector) {
+          string ingredient = component["ingredient"].get<string>();
+          int amount = component["amount"].get<int>();
+          int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+
+          if(find(separated_pumps.begin(), separated_pumps.end(),pump_number) != separated_pumps.end() ||
+              pump_definitions_[pump_number].min_flow == pump_definitions_[pump_number].max_flow ||
+              pump_definitions_[pump_number].flow_precision == 0){
+            float flow =  pump_definitions_[pump_number].min_flow;
+            timeprogram[time][pump_number] = flow;
+            int end_time = time + amount / flow;
+            timeprogram[end_time][pump_number] = 0;
+          }else {
+            float flow = ((float)amount) / max_duration;
+            int a = flow / pump_definitions_[pump_number].flow_precision;
+            float difFlow = flow - pump_definitions_[pump_number].flow_precision * (float)a;
+            float difAmount = difFlow *  max_duration;
+            LOG(DEBUG) <<"cal Flow: " << flow << "; real Flow: " << pump_definitions_[pump_number].flow_precision * a; 
+            LOG(DEBUG) <<"dif Flow: " << difFlow << "; difAmount: " << difAmount; 
+            int xtime = end_time;
+            if(difAmount > 0.5){
+                flow = pump_definitions_[pump_number].flow_precision * (float)(a+1);
+                xtime = (float)amount / flow + time;
+            }
+            timeprogram[time][pump_number] = flow;
+            timeprogram[xtime][pump_number] = 0;
+          }
+        }
+
+        time = end_time;
+      } else if (timing == 3) {
+        for(auto component: line["components"].get<std::vector<json>>()) {
+          string ingredient = component["ingredient"].get<string>();
+          int amount = component["amount"].get<int>();
+          int pump_number = pump_ingredients_bimap_.right.at(ingredient);
+          float max_flow =  pump_definitions_[pump_number].max_flow;
+          timeprogram[time][pump_number] = max_flow;
+          int end_time = time + amount / max_flow;
+          timeprogram[end_time][pump_number] = 0;
+          
+          if (end_time > max_time){
+            max_time = end_time;
+          }
+
+          time = max_time;
+        }
+      }
+
+      time += sleep + 1;
+    }
+  }catch(const std::exception& ex){
+      LOG(ERROR)<<"Failed to create timeprogram: "<<ex.what();
+      time = -1;
+      json json_message = json::object();
+      json_message["error"]["type"] = "TimeProgramParseError";
+      json_message["error"]["nr"] = 1;
+      json_message["error"]["details"] = ex.what();
+      webinterface_->SendMessage(json_message.dump());
+    }
+  
 
   return time;
 }
