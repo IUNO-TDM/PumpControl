@@ -14,9 +14,9 @@ public:
       //the flow precision in ml/s
       float flow_precision;
     } PumpDefinition;
-    virtual ~PumpDriverInterface(void){};
+    virtual ~PumpDriverInterface(){};
 
-    virtual void Init(const char* config_text_ptr, std::map<int,PumpDefinition> pump_definitions) = 0;
+    virtual bool Init(const char* config_text_ptr, std::map<int,PumpDefinition> pump_definitions) = 0;
 
     virtual void DeInit() = 0;
 

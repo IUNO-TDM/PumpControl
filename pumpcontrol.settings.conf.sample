@@ -1,0 +1,37 @@
+simulation = false
+webSocketPort = 9002
+serialPort = /dev/tty.usbserial-A104W010
+
+[pump.configuration]
+1.output = 3
+1.min_flow = 0.000714285714286
+1.max_flow = 0.001428571428571
+1.flow_precision = 0.000005580357143
+2.output = 4
+2.min_flow = 0.001428571428571
+2.max_flow = 0.001428571428571
+2.flow_precision = 0.001428571428571
+3.output = 5
+3.min_flow = 0.000714285714286
+3.max_flow = 0.001428571428571
+3.flow_precision = 0.000005580357143
+4.output = 6
+4.min_flow = 0.000714285714286
+4.max_flow = 0.001428571428571
+4.flow_precision = 0.000005580357143
+5.output = 7
+5.min_flow = 0.001428571428571
+5.max_flow = 0.001428571428571
+5.flow_precision = 0.001428571428571
+6.output = 8
+6.min_flow = 0.001428571428571
+6.max_flow = 0.001428571428571
+6.flow_precision = 0.001428571428571
+7.output = 9
+7.min_flow = 0.000714285714286
+7.max_flow = 0.001428571428571
+7.flow_precision = 0.000005580357143
+8.output = 10
+8.min_flow = 0.000714285714286
+8.max_flow = 0.001428571428571
+8.flow_precision = 0.000005580357143

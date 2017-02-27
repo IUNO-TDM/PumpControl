@@ -7,7 +7,6 @@ TimeProgramRunner::TimeProgramRunner(TimeProgramRunnerCallback* callback_client,
     // pump_definitions_ = pump_driver_->GetPumps();
 }
 TimeProgramRunner::~TimeProgramRunner(){
-
 }
 void TimeProgramRunner::Run(){
     chrono::steady_clock::time_point wakeup_time_point= chrono::steady_clock::now();

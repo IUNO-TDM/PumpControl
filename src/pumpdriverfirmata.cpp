@@ -11,8 +11,8 @@ PumpDriverFirmata::~PumpDriverFirmata(){
 
 };
 
-void PumpDriverFirmata::Init(const char *config_text_ptr, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
-
+bool PumpDriverFirmata::Init(const char *config_text_ptr, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
+  bool rv = false;
   std::vector<firmata::PortInfo> ports = firmata::FirmSerial::listPorts();
   pump_definitions_ = pump_definitions;
 
@@ -37,42 +37,20 @@ void PumpDriverFirmata::Init(const char *config_text_ptr, std::map<int,PumpDrive
     if (serialio_->available()) {
       sleep(3); // Seems necessary on linux
       firmata_ = new firmata::Firmata<firmata::Base, firmata::I2C>(serialio_);
+      firmata_->setSamplingInterval(100);
     }
-  } 
-  catch(firmata::IOException e) {
-    std::cout << e.what() << std::endl;
-  }
-  catch(firmata::NotOpenException e) {
-    std::cout << e.what() << std::endl;
-  }
-
-  firmata_->setSamplingInterval(100);
-
-
-  for(auto i : pump_definitions_){
-    if(pump_is_pwm_[i.first]){
-      firmata_->pinMode(i.second.output, MODE_PWM);
-      // firmata_pinMode(firmata_, i.second, MODE_PWM);
-    } else {
-      firmata_->pinMode(i.second.output, MODE_OUTPUT);
-      // firmata_pinMode(firmata_, i.second, MODE_OUTPUT);
+    for(auto i : pump_definitions_){
+      if(pump_is_pwm_[i.first]){
+        firmata_->pinMode(i.second.output, MODE_PWM);
+        // firmata_pinMode(firmata_, i.second, MODE_PWM);
+      } else {
+        firmata_->pinMode(i.second.output, MODE_OUTPUT);
+        // firmata_pinMode(firmata_, i.second, MODE_OUTPUT);
+      }
+      
     }
-    
-  }
 
-  this_thread::sleep_for(chrono::seconds(2));
-  for(auto i : pump_definitions_){
-    if(pump_is_pwm_[i.first]){
-      firmata_->analogWrite(i.second.output,0);
-      // firmata_analogWrite(firmata_, i.second, 0);
-    } else {
-      firmata_->digitalWrite(i.second.output,LOW);
-      // firmata_digitalWrite(firmata_, i.second, LOW);
-    }
-  }
-};
-
-void PumpDriverFirmata::DeInit(){
+    this_thread::sleep_for(chrono::seconds(2));
     for(auto i : pump_definitions_){
       if(pump_is_pwm_[i.first]){
         firmata_->analogWrite(i.second.output,0);
@@ -82,6 +60,32 @@ void PumpDriverFirmata::DeInit(){
         // firmata_digitalWrite(firmata_, i.second, LOW);
       }
     }
+    rv = true;
+  } 
+  catch(firmata::IOException e) {
+    LOG(ERROR)<< e.what();
+  }
+  catch(firmata::NotOpenException e) {
+    LOG(ERROR)<< e.what();
+  }
+  return rv;
+};
+
+void PumpDriverFirmata::DeInit(){
+  try{
+    for(auto i : pump_definitions_){
+      if(pump_is_pwm_[i.first]){
+        firmata_->analogWrite(i.second.output,0);
+        // firmata_analogWrite(firmata_, i.second, 0);
+      } else {
+        firmata_->digitalWrite(i.second.output,LOW);
+        // firmata_digitalWrite(firmata_, i.second, LOW);
+      }
+    }
+  }catch(const std::exception& ex){
+    LOG(ERROR)<<"Exception on DeInit the PumpDriver: "<<ex.what();
+  }
+    
 };
 int PumpDriverFirmata::GetPumpCount()
 {

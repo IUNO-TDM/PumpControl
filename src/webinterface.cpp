@@ -16,14 +16,7 @@ using namespace std;
 WebInterface::WebInterface(int port){
   port_ = port;
   // callback_clients_ = new callback_clients_Map();
-  server_.set_access_channels(websocketpp::log::alevel::all);
-  server_.clear_access_channels(websocketpp::log::alevel::frame_payload);
-  server_.init_asio();
-  server_.listen(port_);
-  server_.set_open_handler(bind(&WebInterface::OnOpen,this, ::_1));
-  server_.set_close_handler(bind(&WebInterface::OnClose,this,::_1));
-  server_.set_http_handler(bind(&WebInterface::OnHttp,this,::_1));
-  server_.set_message_handler(bind(&WebInterface::OnMessage,this,::_1,::_2));
+  
 
 }
 
@@ -88,19 +81,38 @@ void WebInterface::OnMessage(connection_hdl hdl, WebSocketServer::message_ptr ms
 }
 
 
-void WebInterface::Start(){
+bool WebInterface::Start(){
   LOG(DEBUG) << "Webinterface start on port " << port_;
-  server_.start_accept();
-  thread t([this]{
-    this->server_.run();
-  });
-  server_thread_ = move(t);
+  bool rv = false;
+  try{
+    server_.set_access_channels(websocketpp::log::alevel::all);
+    server_.clear_access_channels(websocketpp::log::alevel::frame_payload);
+    server_.init_asio();
+    server_.listen(port_);
+    server_.set_open_handler(bind(&WebInterface::OnOpen,this, ::_1));
+    server_.set_close_handler(bind(&WebInterface::OnClose,this,::_1));
+    server_.set_http_handler(bind(&WebInterface::OnHttp,this,::_1));
+    server_.set_message_handler(bind(&WebInterface::OnMessage,this,::_1,::_2));
+    server_.start_accept();
+    thread t([this]{
+      this->server_.run();
+    });
+    rv = true;
+    server_thread_ = move(t);
+  }catch(websocketpp::exception const & e){
+    LOG(ERROR)<<e.what();
+  }
+  return rv;
+  
 }
 
 void WebInterface::Stop(){
   LOG(DEBUG) << "Webinterface stop ";
   server_.stop();
-  server_thread_.join();
+  if(server_thread_.joinable()){
+    server_thread_.join();
+  }
+  
 }
 
 void WebInterface::SendMessage(std::string message){

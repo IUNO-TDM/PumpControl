@@ -7,9 +7,9 @@
 class PumpDriverFirmata: public PumpDriverInterface {
   public:
     PumpDriverFirmata();
-    ~PumpDriverFirmata(void);
+    ~PumpDriverFirmata();
 
-    void Init(const char* config_text_ptr, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions);
+    bool Init(const char* config_text_ptr, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions);
 
     void DeInit();
 

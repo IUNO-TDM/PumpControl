@@ -28,141 +28,161 @@ int main(int argc, char* argv[])
   string serial_port;
   string config_file;
   string homeDir = getenv("HOME");
-  string std_conf_location = homeDir + "/pumpcontrol.settings.conf";
-  po::options_description generic("Generic options");
-        generic.add_options()
-            ("version,v", "print version string")
-            ("help", "produce help message")
-            ("config,c", po::value<string>(&config_file)->default_value(std_conf_location),
-                  "name of a file of a configuration.")
-            ;
-
-  po::options_description config("Configuration");
-        config.add_options()
-            ("simulation", po::value<bool>(&simulation)->default_value(false), 
-                  "simulation pump driver active")
-            ("serialPort", 
-                 po::value< string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"), 
-                 "the full serial Port path")
-            ("webSocketPort", 
-                 po::value<int>(&websocket_port)->default_value(9002), 
-                 "The port of the listening WebSocket")
-            ;
-
-
   std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions;
-  po::options_description pump_config("PumpConfiguration");
-  string pump_config_str = "pump.configuration.";
-  for(int i = 1; i <=8; i++){
-    pump_definitions[i] = PumpDriverInterface::PumpDefinition();
-    pump_config.add_options()
-            ((pump_config_str + to_string(i) + ".output").c_str() , po::value<int>(&(pump_definitions[i].output))->default_value(i), 
-                  (string("Output Pin for pump number ") + to_string(i)).c_str())
-            ((pump_config_str + to_string(i) + ".flowPrecision").c_str() , po::value<float>(&(pump_definitions[i].flow_precision))->default_value((0.00143-0.0007)/128), 
-                  (string("Flow Precision for pump number ") + to_string(i)).c_str())
-            ((pump_config_str + to_string(i) + ".min_flow").c_str() , po::value<float>(&(pump_definitions[i].min_flow))->default_value(0.0007), 
-                  (string("Min Flow for pump number ") + to_string(i)).c_str())
-            ((pump_config_str + to_string(i) + ".max_flow").c_str() , po::value<float>(&(pump_definitions[i].max_flow))->default_value(0.00143), 
-                  (string("Max Flow for pump number ") + to_string(i)).c_str());
-                  
-  }  
-
-  po::options_description cmdline_options;
-  cmdline_options.add(generic).add(config);
-
-  po::options_description config_file_options;
-  config_file_options.add(config).add(pump_config);
-
-  po::options_description visible("Allowed options");
-  visible.add(generic).add(config);
-  po::variables_map vm;
-  store(po::command_line_parser(argc, argv).
-        options(cmdline_options).run(), vm);
-  notify(vm);
-
-  ifstream ifs(config_file.c_str());
-  if (!ifs)
+  string std_conf_location = homeDir + "/pumpcontrol.settings.conf";
   {
-      LOG(INFO) << "Can not open config file: " << config_file;
-  }
-  else
-  {
-      store(parse_config_file(ifs, config_file_options), vm);
-      notify(vm);
-  }
+    po::options_description generic("Generic options");
+      generic.add_options()
+          ("version,v", "print version string")
+          ("help", "produce help message")
+          ("config,c", po::value<string>(&config_file)->default_value(std_conf_location),
+                "name of a file of a configuration.")
+          ;
 
-  if (vm.count("help")) {
-      cout << visible << "\n";
-      return 0;
-  }
+    po::options_description config("Configuration");
+          config.add_options()
+              ("simulation", po::value<bool>(&simulation)->default_value(false), 
+                    "simulation pump driver active")
+              ("serialPort", 
+                  po::value< string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"), 
+                  "the full serial Port path")
+              ("webSocketPort", 
+                  po::value<int>(&websocket_port)->default_value(9002), 
+                  "The port of the listening WebSocket")
+              ;
 
-  if (vm.count("version")) {
-      cout << "Multiple sources example, version 1.0\n";
-      return 0;
-  }
 
+    
+    po::options_description pump_config("PumpConfiguration");
+    string pump_config_str = "pump.configuration.";
+    for(int i = 1; i <=8; i++){
+      pump_definitions[i] = PumpDriverInterface::PumpDefinition();
+      pump_config.add_options()
+              ((pump_config_str + to_string(i) + ".output").c_str() , po::value<int>(&(pump_definitions[i].output))->default_value(i), 
+                    (string("Output Pin for pump number ") + to_string(i)).c_str())
+              ((pump_config_str + to_string(i) + ".flow_precision").c_str() , po::value<float>(&(pump_definitions[i].flow_precision))->default_value((0.00143-0.0007)/128), 
+                    (string("Flow Precision for pump number ") + to_string(i)).c_str())
+              ((pump_config_str + to_string(i) + ".min_flow").c_str() , po::value<float>(&(pump_definitions[i].min_flow))->default_value(0.0007), 
+                    (string("Min Flow for pump number ") + to_string(i)).c_str())
+              ((pump_config_str + to_string(i) + ".max_flow").c_str() , po::value<float>(&(pump_definitions[i].max_flow))->default_value(0.00143), 
+                    (string("Max Flow for pump number ") + to_string(i)).c_str());
+                    
+    }  
+
+    po::options_description cmdline_options;
+    cmdline_options.add(generic).add(config);
+
+    po::options_description config_file_options;
+    config_file_options.add(config).add(pump_config);
+
+    po::options_description visible("Allowed options");
+    visible.add(generic).add(config);
+    po::variables_map vm;
+    store(po::command_line_parser(argc, argv).
+          options(cmdline_options).run(), vm);
+    notify(vm);
+
+    ifstream ifs(config_file.c_str());
+    if (!ifs)
+    {
+        LOG(INFO) << "Can not open config file: " << config_file;
+    }
+    else
+    {
+        store(parse_config_file(ifs, config_file_options), vm);
+        notify(vm);
+    }
+
+    if (vm.count("help")) {
+        cout << visible << "\n";
+        return 0;
+    }
+
+    if (vm.count("version")) {
+        cout << "Multiple sources example, version 1.0\n";
+        return 0;
+    }
+  }
+  
   PumpControl *pump_control = new PumpControl(serial_port.c_str(), simulation, websocket_port, pump_definitions);
 
   
-  LOG(INFO) << "My first info log using default logger";
   cin.get();
   
   delete pump_control;
   LOG(INFO) << "Application closes now";
+  el::Loggers::flushAll();
   return 0;
 }
 
 
-PumpControl::PumpControl(const char* serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
+PumpControl::PumpControl(string serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
   Init(serial_port, simulation, websocket_port, pump_definitions);
 }
 
 PumpControl::~PumpControl(){
   LOG(DEBUG) << "PumpControl destructor";
-  webinterface_->Stop();
-  webinterface_->UnregisterCallbackClient(this);
-  timeprogramrunner_->Shutdown();
-  timeprogramrunner_thread_.join();
-  delete timeprogramrunner_;
-  delete webinterface_;
-  delete pumpdriver_;
+  if (webinterface_){
+    webinterface_->Stop();
+    webinterface_->UnregisterCallbackClient(this);
+    delete webinterface_;
+  }
+  if(timeprogramrunner_){
+    timeprogramrunner_->Shutdown();
+    if(timeprogramrunner_thread_.joinable()){
+      timeprogramrunner_thread_.join();
+    }
+    delete timeprogramrunner_;
+  }
+  if(pumpdriver_){
+    delete pumpdriver_;
+  }
+  
   LOG(DEBUG) << "PumpControl destructor finished";
 }
 
 
-void PumpControl::Init(const char* serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
+void PumpControl::Init(string serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
   simulation_ = simulation;
-  uint len = strlen(serial_port);
-  serialport_ = new char(len);
-  strcpy(serialport_, serial_port);
+  pump_definitions_ = pump_definitions;
+  serialport_ = serial_port;
 
   for(auto i: kPumpIngredientsInit){
     pump_ingredients_bimap_.insert(IngredientsBiMap::value_type(i.first, i.second));
   }
 
-
   webinterface_= new WebInterface(websocket_port);
   SetClientName("PumpControl");
   webinterface_->RegisterCallbackClient(this);
-  webinterface_->Start();
+  bool success = webinterface_->Start();
 
+  if (success){
+    SetPumpControlState(PUMP_STATE_IDLE);
+    string config_string;
+    if(simulation_){
+      pumpdriver_ = new PumpDriverSimulation();
+      LOG(INFO) << "The simulation mode is on. Firmata not active!";
+      config_string = "simulation";
 
-  SetPumpControlState(PUMP_STATE_IDLE);
-  string config_string;
-  if(simulation_){
-    pumpdriver_ = new PumpDriverSimulation();
-    LOG(INFO) << "The simulation mode is on. Firmata not active!";
-    config_string = "simulation";
-
+    }else{
+      pumpdriver_ = new PumpDriverFirmata();
+      config_string = serialport_;
+    }
+    
+    
+    success = pumpdriver_->Init(config_string.c_str(), pump_definitions_);
+    if (success){
+      timeprogramrunner_ = new TimeProgramRunner(this,pumpdriver_);
+      timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run,timeprogramrunner_);
+    }else{
+      LOG(ERROR)<< "Could not initialize the Pump Driver. You can now close the application.";
+    }
+    
   }else{
-    pumpdriver_ = new PumpDriverFirmata();
-    config_string = "/dev/tty.usbserial-A104WO1O";
+    LOG(ERROR)<< "Could not inititalize the WebInterface. You can now close the application.";
   }
-  pump_definitions_ = pump_definitions;
-  pumpdriver_->Init(config_string.c_str(), pump_definitions_);
+
   
-  timeprogramrunner_ = new TimeProgramRunner(this,pumpdriver_);
-  timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run,timeprogramrunner_);
 }
 
 bool PumpControl::Start(const char*  recipe_json_string){

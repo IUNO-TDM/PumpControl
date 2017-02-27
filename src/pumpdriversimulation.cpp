@@ -9,9 +9,10 @@ PumpDriverSimulation::~PumpDriverSimulation(){
     
 };
 
-void PumpDriverSimulation::Init(const char *config_text_ptr, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
+bool PumpDriverSimulation::Init(const char *config_text_ptr, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions){
   LOG(INFO) << "init with config text" << config_text_ptr;
   pump_definitions_ = pump_definitions;
+  return true;
 };
 
 void PumpDriverSimulation::DeInit(){

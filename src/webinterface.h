@@ -10,11 +10,12 @@ typedef websocketpp::server<websocketpp::config::asio> WebSocketServer;
 class WebInterface {
 public:
   WebInterface(int port);
+  
   ~WebInterface();
   void RegisterCallbackClient(WebInterfaceCallbackClient *);
   void UnregisterCallbackClient(WebInterfaceCallbackClient *);
-
-  void Start();
+  void Init(int port);
+  bool Start();
   void Stop();
   void SendMessage(std::string message);
 private:
