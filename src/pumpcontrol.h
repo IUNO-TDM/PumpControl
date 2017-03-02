@@ -30,6 +30,7 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
     //WebInterfaceCallbackClient
     bool WebInterfaceHttpMessage(std::string method, std::string path, std::string body, HttpResponse *response);
     bool WebInterfaceWebSocketMessage(std::string message, std::string * response);
+    void WebInterfaceOnOpen();
     //TimeProgramRunnerCallback
     void TimeProgramRunnerProgressUpdate(const char* id,int percent);
     void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state);

@@ -34,9 +34,17 @@ void WebInterface::UnregisterCallbackClient(WebInterfaceCallbackClient *client){
 }
 
 void WebInterface::OnOpen(connection_hdl hdl){
-  lock_guard<mutex> guard(connection_mutex_);
-  LOG(DEBUG) << "WebInterface onOpen";
-  connections_.insert(hdl);
+  {
+    lock_guard<mutex> guard(connection_mutex_);
+    LOG(DEBUG) << "WebInterface onOpen";
+    connections_.insert(hdl);
+  }  
+  for(CallbackClientsMap::iterator i = callback_clients_.begin();
+      i!= callback_clients_.end(); i++)
+  {
+    i->second->WebInterfaceOnOpen();
+  }
+  
 }
 
 void WebInterface::OnClose(connection_hdl hdl){

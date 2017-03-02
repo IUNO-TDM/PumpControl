@@ -586,6 +586,12 @@ bool PumpControl::WebInterfaceWebSocketMessage(std::string message, std::string 
     return true;
 }
 
+void PumpControl::WebInterfaceOnOpen(){
+    json json_message = json::object();
+    json_message["mode"] = NameForPumpControlState(pumpcontrol_state_);
+    webinterface_->SendMessage(json_message.dump());
+}
+
 void PumpControl::TimeProgramRunnerProgressUpdate(const char* id, int percent){
   LOG(DEBUG) << "TimeProgramRunnerProgressUpdate " << percent << " : " << id; 
   json json_message = json::object();
