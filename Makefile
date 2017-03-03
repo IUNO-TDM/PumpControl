@@ -1,5 +1,5 @@
 TARGET_EXEC ?= pumpcontrol.out
-
+OS := $(shell uname)
 BUILD_DIR ?= ./build
 LIB_DIR ?= ./lib
 
@@ -16,18 +16,25 @@ DEPS = $(OBJS:.o=.d)
 INC_DIRS = $(shell find $(SRC_DIRS) -type d)
 INC_DIRS += $(3DP_DIRS)
 INC_DIRS += ./lib
-INC_DIRS += /usr/local/opt/openssl/include
-INC_DIRS += /usr/local/Cellar/boost/1.63.0/include/
 INC_DIRS += ./lib/firmatacpp/include
 INC_DIRS += ./lib/serial/include
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
+
+ifeq ($(OS), Darwin)
+# Run MacOS commands 
+LDFLAGS := -g -L/usr/local/opt/openssl/lib -L/usr/local/Cellar/boost/1.63.0/lib/ -lcrypto -lboost_system -lboost_regex -lboost_program_options -framework IOKit -framework CoreFoundation
+INC_DIRS += /usr/local/opt/openssl/include
+INC_DIRS += /usr/local/Cellar/boost/1.63.0/include/
+else
+# check for Linux and run other commands
+LDFLAGS := -g -lcrypto -lboost_system -lboost_regex -lboost_program_options -lpthread
+endif
 
 
 DOWNLOAD_FILES := $(shell find $(LIB_DIR) -name *.download)
 DOWNLOADED_FILES := $(DOWNLOAD_FILES:%.download=%.downloaded)
 
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall -g
-LDFLAGS := -g -L/usr/local/opt/openssl/lib -L/usr/local/Cellar/boost/1.63.0/lib/ -lcrypto -lboost_system -lboost_regex -lboost_program_options -framework IOKit -framework CoreFoundation
 
 %.downloaded: %.download
 	$(MKDIR_P) $(dir $<)/downloaded/$(basename $(notdir $<))/src
