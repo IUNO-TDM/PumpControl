@@ -32,9 +32,9 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
     bool WebInterfaceWebSocketMessage(std::string message, std::string * response);
     void WebInterfaceOnOpen();
     //TimeProgramRunnerCallback
-    void TimeProgramRunnerProgressUpdate(const char* id,int percent);
+    void TimeProgramRunnerProgressUpdate(std::string id,int percent);
     void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state);
-    void TimeProgramRunnerProgramEnded(const char* id);
+    void TimeProgramRunnerProgramEnded(std::string id);
 
   private:
     PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;

@@ -92,7 +92,7 @@ void TimeProgramRunner::Shutdown(){
         condition_variable_.notify_one();
     }
 }
-void TimeProgramRunner::StartProgram(const char* id, TimeProgram time_program){
+void TimeProgramRunner::StartProgram(std::string id, TimeProgram time_program){
     std::lock_guard<std::mutex> guard(state_machine_mutex_);
     if(timeprogramrunner_state_ == TIME_PROGRAM_IDLE){
         timeprogramrunner_target_state_ = TIME_PROGRAM_ACTIVE;

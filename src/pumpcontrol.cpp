@@ -592,7 +592,7 @@ void PumpControl::WebInterfaceOnOpen(){
     webinterface_->SendMessage(json_message.dump());
 }
 
-void PumpControl::TimeProgramRunnerProgressUpdate(const char* id, int percent){
+void PumpControl::TimeProgramRunnerProgressUpdate(std::string id, int percent){
   LOG(DEBUG) << "TimeProgramRunnerProgressUpdate " << percent << " : " << id; 
   json json_message = json::object();
   json_message["progressUpdate"]["orderName"] = id;
@@ -615,7 +615,7 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRun
       break;
   }
 }
-void PumpControl::TimeProgramRunnerProgramEnded(const char* id ){
+void PumpControl::TimeProgramRunnerProgramEnded(std::string id ){
   LOG(DEBUG) << "TimeProgramRunnerProgramEnded" << id;
   json json_message = json::object();
   json_message["programEnded"]["orderName"] = id;

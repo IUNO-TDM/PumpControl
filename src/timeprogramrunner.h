@@ -4,6 +4,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <stdlib.h>
+#include <string>
 
 class TimeProgramRunnerCallback;
 class TimeProgramRunner {
@@ -22,7 +24,7 @@ class TimeProgramRunner {
         ~TimeProgramRunner();
         void Run();
         void Shutdown();
-        void StartProgram(const char* id, TimeProgram time_program);
+        void StartProgram(std::string id, TimeProgram time_program);
         void EmergencyStopProgram();
         static const char* NameForState(TimeProgramRunnerState state);
         
@@ -37,12 +39,12 @@ class TimeProgramRunner {
         std::mutex time_lock_mutex_;
         std::mutex state_machine_mutex_;
         // std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions_;
-        const char* programm_id_;
+        std::string programm_id_;
 };
 
 class TimeProgramRunnerCallback{
     public:
-        virtual void TimeProgramRunnerProgressUpdate(const char* id, int percent) = 0;
+        virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent) = 0;
         virtual void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state) = 0;
-        virtual void TimeProgramRunnerProgramEnded(const char* id ) = 0;
+        virtual void TimeProgramRunnerProgramEnded(std::string id ) = 0;
 };
