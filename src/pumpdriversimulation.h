@@ -24,7 +24,7 @@ class PumpDriverSimulation: public PumpDriverInterface {
   private:
 
     std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions_;
-    std::map<int,int> pump_amount_map_;
+    std::map<int,float> pump_amount_map_;
     std::map<int,FlowLog> flow_logs_;
     const int warn_level = 100;
 

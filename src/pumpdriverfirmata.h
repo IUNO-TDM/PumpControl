@@ -31,7 +31,7 @@ class PumpDriverFirmata: public PumpDriverInterface {
 
     std::map<int, bool> pump_is_pwm_;
 
-    std::map<int,int> pump_amount_map_;
+    std::map<int,float> pump_amount_map_;
 
     
 
