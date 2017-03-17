@@ -3,6 +3,11 @@
 #include <unistd.h>
 #include <map>
 
+class PumpDriverCallbackClient{
+    public:
+        virtual void PumpDriverAmountWarning(int pump_number, int amount_left) = 0;
+};
+
 class PumpDriverInterface {
 public:
     typedef struct{
@@ -16,13 +21,16 @@ public:
     } PumpDefinition;
     virtual ~PumpDriverInterface(){};
 
-    virtual bool Init(const char* config_text_ptr, std::map<int,PumpDefinition> pump_definitions) = 0;
+    virtual bool Init(const char* config_text_ptr, std::map<int,PumpDefinition> pump_definitions, PumpDriverCallbackClient* callbackClient) = 0;
 
     virtual void DeInit() = 0;
 
-    // virtual std::map<int,PumpDefinition> GetPumps() = 0;
     virtual int GetPumpCount() = 0;
 
     virtual void SetPump(int pump_number, float flow) = 0;
+
+    virtual void SetAmountForPump(int pump_number, int amount) = 0;
 };
+
+
 #endif
