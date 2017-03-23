@@ -11,7 +11,7 @@
 #include "pumpdriverinterface.h"
 #include "timeprogramrunner.h"
 
-class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCallback{
+class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCallback, public PumpDriverCallbackClient{
 
   public:
     typedef enum {
@@ -35,6 +35,8 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
     void TimeProgramRunnerProgressUpdate(std::string id,int percent);
     void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state);
     void TimeProgramRunnerProgramEnded(std::string id);
+    void PumpDriverAmountWarning(int pump_number, int amount_left);
+    // void TimeProgramRunnerAmountWarning(int pump_number, int amount_left);
 
   private:
     PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
@@ -60,7 +62,8 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
        { 6, "Johannisbeersaft" },
        { 7, "Cola" },
        { 8, "Fanta" }};
-    
+
+        
     std::thread timeprogramrunner_thread_;
 
     int CreateTimeProgram(nlohmann::json j, TimeProgramRunner::TimeProgram &timeprogram);;

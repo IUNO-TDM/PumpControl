@@ -170,7 +170,7 @@ void PumpControl::Init(string serial_port, bool simulation, int websocket_port, 
     }
     
     
-    success = pumpdriver_->Init(config_string.c_str(), pump_definitions_);
+    success = pumpdriver_->Init(config_string.c_str(), pump_definitions_, this);
     if (success){
       timeprogramrunner_ = new TimeProgramRunner(this,pumpdriver_);
       timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run,timeprogramrunner_);
@@ -421,39 +421,70 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
     try {
       if (boost::starts_with(path,"/ingredients/"))
       {
-        boost::regex expr{"\\/ingredients\\/([0-9]{1,2})"};
+        boost::regex expr{"\\/ingredients\\/([0-9]{1,2}(\\/amount)?)"};
         boost::smatch what;
         if(boost::regex_search(path,what,expr)){
           int nr = stoi(what[1].str());
-          std::cout << nr<< '\n';
-          if (method == "GET"){
-            if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()){
-              response->response_code = 200;
-              response->response_message = pump_ingredients_bimap_.left.at(nr);
-            }else{
-              response->response_code = 404;
-              response->response_message = "No ingredient for this pump number available!";
+          if(what.size() == 3 && what[2].str() == "/amount"){
+            if (method == "PUT"){
+                if(body.length()> 0){
+                  auto it = pump_ingredients_bimap_.left.find(nr);
+                  if(it != pump_ingredients_bimap_.left.end()){
+                    try{
+                      int amount = atoi(body.c_str());
+                      pumpdriver_->SetAmountForPump(nr, amount);
+                      LOG(DEBUG) << amount << "ml has been set for pump " << nr;
+                      response->response_code = 200;
+                      response->response_message = "Successfully stored amount for ingredient for pump";
+                    }catch(exception& e){
+                      LOG(ERROR) << e.what();
+                      response->response_code = 400;
+                      response->response_message = "The body is invalid";
+                    }
+                  }else{
+                    LOG(DEBUG)<< "Amount for pump nr " << nr << "cant be set, because it is not configured";
+                    response->response_code = 400;
+                    response->response_message = "This pump is not configured";
+                  }
+                }else {
+                  response->response_code = 400;
+                  response->response_message = "Body is empty";
+                }
+              }else {
+              response->response_code = 400;
+              response->response_message = "Wrong method for this URL";
             }
-          }else if (method == "PUT"){
-            if(body.length()> 0){
-              auto it = pump_ingredients_bimap_.left.find(nr);
-              pump_ingredients_bimap_.left.replace_data(it,body);
-              response->response_code = 200;
-              response->response_message = "Successfully stored ingredient for pump";
+          }else{
+            if (method == "GET"){
+              if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()){
+                response->response_code = 200;
+                response->response_message = pump_ingredients_bimap_.left.at(nr);
+              }else{
+                response->response_code = 404;
+                response->response_message = "No ingredient for this pump number available!";
+              }
+            }else if (method == "PUT"){
+              if(body.length()> 0){
+                auto it = pump_ingredients_bimap_.left.find(nr);
+                pump_ingredients_bimap_.left.replace_data(it,body);
+                LOG(DEBUG) << "Pump number " << nr << "is now bound to "<< body;
+                response->response_code = 200;
+                response->response_message = "Successfully stored ingredient for pump";
 
+              }
+            }else if (method == "DELETE") {
+              if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()){
+                pump_ingredients_bimap_.left.erase(nr);
+                response->response_code = 200;
+                response->response_message = "Successfully deleted ingredient for pump";
+              }else{
+                response->response_code = 404;
+                response->response_message = "No ingredient for this pump number available!";
+              }
+            }else {
+              response->response_code = 400;
+              response->response_message = "Wrong method for this URL";
             }
-          }else if (method == "DELETE") {
-            if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()){
-              pump_ingredients_bimap_.left.erase(nr);
-              response->response_code = 200;
-              response->response_message = "Successfully deleted ingredient for pump";
-            }else{
-              response->response_code = 404;
-              response->response_message = "No ingredient for this pump number available!";
-            }
-          }else {
-            response->response_code = 400;
-            response->response_message = "Wrong method for this URL";
           }
         }
       }else if (boost::starts_with(path,"/pumps")){
@@ -619,5 +650,17 @@ void PumpControl::TimeProgramRunnerProgramEnded(std::string id ){
   LOG(DEBUG) << "TimeProgramRunnerProgramEnded" << id;
   json json_message = json::object();
   json_message["programEnded"]["orderName"] = id;
+  webinterface_->SendMessage(json_message.dump());
+}
+
+void PumpControl::PumpDriverAmountWarning(int pump_number, int amount_left)
+{
+  string ingredient = pump_ingredients_bimap_.left.at(pump_number);
+
+  LOG(DEBUG) << "PumpDriverAmountWarning: nr:" << pump_number << " ingredient: " << ingredient << " Amount left: " << amount_left; 
+  json json_message = json::object();
+  json_message["amountWarning"]["pumpNr"] = pump_number;
+  json_message["amountWarning"]["ingredient"] = ingredient;
+  json_message["amountWarning"]["amountLeft"] = amount_left;
   webinterface_->SendMessage(json_message.dump());
 }
