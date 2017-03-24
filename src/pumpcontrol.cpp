@@ -651,6 +651,7 @@ void PumpControl::TimeProgramRunnerProgramEnded(std::string id ){
   json json_message = json::object();
   json_message["programEnded"]["orderName"] = id;
   webinterface_->SendMessage(json_message.dump());
+  timeprogram_.clear();
 }
 
 void PumpControl::PumpDriverAmountWarning(int pump_number, int amount_left)
