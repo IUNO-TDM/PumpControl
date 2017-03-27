@@ -46,20 +46,32 @@ void TimeProgramRunner::Run(){
             switch(timeprogramrunner_state_){
             case TIME_PROGRAM_ACTIVE:
                 {
-                    auto it = timeprogram_.find(timeprogram_time);
-                    for(auto i: it->second){
-                        pump_driver_->SetPump(i.first, i.second);
-                    } 
-                    callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,(100 * it->first) / (--timeprogram_.end())->first);
-                    it++;
-                    if(it != timeprogram_.end()){
-                        timeprogram_time = it->first;
-                        wakeup_time_point = start_time + chrono::milliseconds(it->first);
+                    //progress update
+                    int end_time = timeprogram_.rbegin()->first;
+                    int current_time = chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - start_time).count();
+                    callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,(100 *current_time / end_time));
+                    
+                    //check if we already are ready to enable or disable pumps
+                    if(current_time >= timeprogram_time){
+                        auto it = timeprogram_.find(timeprogram_time);
+                        for(auto i: it->second){
+                            pump_driver_->SetPump(i.first, i.second);
+                        } 
+                        // callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,(100 * it->first) / (--timeprogram_.end())->first);
+                        it++;
+                        if(it != timeprogram_.end()){
+                            timeprogram_time = it->first;
+                            int wakeup_time = min(current_time + 1000,timeprogram_time);
+                            wakeup_time_point = start_time + chrono::milliseconds(wakeup_time);
+                        }else{
+                            timeprogramrunner_target_state_ = TIME_PROGRAM_IDLE;
+                            callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,100);
+                            wakeup_time_point = chrono::steady_clock::now();
+                        }
                     }else{
-                        timeprogramrunner_target_state_ = TIME_PROGRAM_IDLE;
-                        callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,100);
-                        wakeup_time_point = chrono::steady_clock::now();
-                    }
+                        int wakeup_time = min(current_time + 1000,timeprogram_time);
+                        wakeup_time_point = start_time + chrono::milliseconds(wakeup_time);
+                    }                    
                 }   
                 break;
             case TIME_PROGRAM_IDLE:
