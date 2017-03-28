@@ -5,7 +5,7 @@
 
 class PumpDriverCallbackClient{
     public:
-        virtual void PumpDriverAmountWarning(int pump_number, int amount_left) = 0;
+        virtual void PumpDriverAmountWarning(int pump_number, int amountWarningLimit) = 0;
 };
 
 class PumpDriverInterface {
@@ -14,7 +14,7 @@ public:
       int output;
       //the minimum possible flow in ml/s
       float min_flow;
-      //the maximum possible flow in ml/s
+      //the aximum possible flow in ml/s
       float max_flow;
       //the flow precision in ml/s
       float flow_precision;

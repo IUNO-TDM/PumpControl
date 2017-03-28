@@ -123,7 +123,7 @@ void PumpDriverFirmata::SetPump(int pump_number, float flow){
           pump_amount_map_[pump_number] = 0;
         }
         if(pump_amount_map_[pump_number]< warn_level){
-          callback_client_->PumpDriverAmountWarning(pump_number,pump_amount_map_[pump_number]);
+          callback_client_->PumpDriverAmountWarning(pump_number,warn_level);
         }
       }
       // LOG(DEBUG) << "Amount left in " << pump_number << " is " << pump_amount_map_[pump_number] << "ml";

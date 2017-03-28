@@ -654,14 +654,14 @@ void PumpControl::TimeProgramRunnerProgramEnded(std::string id ){
   timeprogram_.clear();
 }
 
-void PumpControl::PumpDriverAmountWarning(int pump_number, int amount_left)
+void PumpControl::PumpDriverAmountWarning(int pump_number, int amountWarningLimit)
 {
   string ingredient = pump_ingredients_bimap_.left.at(pump_number);
 
-  LOG(DEBUG) << "PumpDriverAmountWarning: nr:" << pump_number << " ingredient: " << ingredient << " Amount left: " << amount_left; 
+  LOG(DEBUG) << "PumpDriverAmountWarning: nr:" << pump_number << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit; 
   json json_message = json::object();
   json_message["amountWarning"]["pumpNr"] = pump_number;
   json_message["amountWarning"]["ingredient"] = ingredient;
-  json_message["amountWarning"]["amountLeft"] = amount_left;
+  json_message["amountWarning"]["amountWarningLimit"] = amountWarningLimit;
   webinterface_->SendMessage(json_message.dump());
 }
