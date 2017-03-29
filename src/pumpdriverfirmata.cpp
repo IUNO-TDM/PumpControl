@@ -117,7 +117,7 @@ void PumpDriverFirmata::SetPump(int pump_number, float flow){
       auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
       if(lastFlow > 0)
       {
-        if(lastFlow >= pump_amount_map_[pump_number]){
+        if(lastFlow < pump_amount_map_[pump_number]){
           pump_amount_map_[pump_number] = pump_amount_map_[pump_number] - lastFlow * duration;
         }else{
           pump_amount_map_[pump_number] = 0;
