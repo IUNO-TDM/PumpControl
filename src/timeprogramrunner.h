@@ -13,12 +13,12 @@ class TimeProgramRunner {
         typedef std::map<int,float> TimeCommand;
         typedef std::map<int,TimeCommand> TimeProgram;
 
-        typedef enum {
+        enum TimeProgramRunnerState{
             TIME_PROGRAM_INIT = 0,
             TIME_PROGRAM_IDLE = 1,
             TIME_PROGRAM_ACTIVE = 2,
             TIME_PROGRAM_STOPPING = 3
-        }TimeProgramRunnerState;    
+        };
         
         TimeProgramRunner(TimeProgramRunnerCallback *callback_client, PumpDriverInterface *pump_driver);
         ~TimeProgramRunner();
