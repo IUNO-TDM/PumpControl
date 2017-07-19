@@ -14,18 +14,18 @@
 class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCallback, public PumpDriverCallbackClient{
 
   public:
-    typedef enum {
+    enum PumpControlState{
       PUMP_STATE_UNINITIALIZED = 0,
       PUMP_STATE_IDLE = 1,
       PUMP_STATE_ACTIVE = 2,
       PUMP_STATE_SERVICE = 3,
       PUMP_STATE_ERROR = 4
-    }PumpControlState;
+    };
 
     // PumpControl();
     PumpControl(std::string serial_port, bool simulation, int websocket_port, std::map<int,PumpDriverInterface::PumpDefinition> pump_configurations);
     // PumpControl(bool simulation);
-    ~PumpControl();
+    virtual ~PumpControl();
 
     //WebInterfaceCallbackClient
     bool WebInterfaceHttpMessage(std::string method, std::string path, std::string body, HttpResponse *response);
@@ -51,8 +51,7 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
     std::string serialport_;
     bool simulation_;
     
-    typedef boost::bimap<int,std::string> IngredientsBiMap;
-    IngredientsBiMap pump_ingredients_bimap_;
+    boost::bimap<int,std::string> pump_ingredients_bimap_;
     const std::map<int,std::string> kPumpIngredientsInit  {
        { 1, "Orangensaft" },
        { 2, "Apfelsaft" },

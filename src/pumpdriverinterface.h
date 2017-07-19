@@ -5,12 +5,13 @@
 
 class PumpDriverCallbackClient{
     public:
+        virtual ~PumpDriverCallbackClient(){}
         virtual void PumpDriverAmountWarning(int pump_number, int amountWarningLimit) = 0;
 };
 
 class PumpDriverInterface {
 public:
-    typedef struct{
+    struct PumpDefinition{
       int output;
       //the minimum possible flow in ml/s
       float min_flow;
@@ -18,10 +19,11 @@ public:
       float max_flow;
       //the flow precision in ml/s
       float flow_precision;
-    } PumpDefinition;
+    };
+
     virtual ~PumpDriverInterface(){};
 
-    virtual bool Init(const char* config_text_ptr, std::map<int,PumpDefinition> pump_definitions, PumpDriverCallbackClient* callbackClient) = 0;
+    virtual bool Init(const char* config_text_ptr, std::map<int, PumpDefinition> pump_definitions, PumpDriverCallbackClient* callbackClient) = 0;
 
     virtual void DeInit() = 0;
 
@@ -31,6 +33,5 @@ public:
 
     virtual void SetAmountForPump(int pump_number, int amount) = 0;
 };
-
 
 #endif

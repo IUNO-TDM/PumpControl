@@ -10,24 +10,23 @@
 class TimeProgramRunnerCallback;
 class TimeProgramRunner {
     public:
-        typedef std::map<int,float> TimeCommand;
-        typedef std::map<int,TimeCommand> TimeProgram;
+        typedef std::map<int, std::map<int,float> > TimeProgram;
 
-        typedef enum {
+        enum TimeProgramRunnerState{
             TIME_PROGRAM_INIT = 0,
             TIME_PROGRAM_IDLE = 1,
             TIME_PROGRAM_ACTIVE = 2,
             TIME_PROGRAM_STOPPING = 3
-        }TimeProgramRunnerState;    
+        };
         
         TimeProgramRunner(TimeProgramRunnerCallback *callback_client, PumpDriverInterface *pump_driver);
-        ~TimeProgramRunner();
+        virtual ~TimeProgramRunner();
+
         void Run();
         void Shutdown();
         void StartProgram(std::string id, TimeProgram time_program);
         void EmergencyStopProgram();
         static const char* NameForState(TimeProgramRunnerState state);
-        
 
     private:
         TimeProgramRunnerCallback *callback_client_;
@@ -44,6 +43,8 @@ class TimeProgramRunner {
 
 class TimeProgramRunnerCallback{
     public:
+		virtual ~TimeProgramRunnerCallback(){}
+
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent) = 0;
         virtual void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state) = 0;
         virtual void TimeProgramRunnerProgramEnded(std::string id ) = 0;
