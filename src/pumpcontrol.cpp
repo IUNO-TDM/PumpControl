@@ -14,6 +14,7 @@
 
 using namespace std;
 using namespace nlohmann;
+
 namespace po = boost::program_options;
 
 INITIALIZE_EASYLOGGINGPP
