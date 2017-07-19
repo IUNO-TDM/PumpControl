@@ -12,8 +12,6 @@
 #include <cfloat>
 #include <stdlib.h>
 
-
-
 using namespace std;
 using namespace nlohmann;
 namespace po = boost::program_options;
@@ -28,7 +26,7 @@ int main(int argc, char* argv[])
   string serial_port;
   string config_file;
   string homeDir = getenv("HOME");
-  std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions;
+  map<int,PumpDriverInterface::PumpDefinition> pump_definitions;
   string std_conf_location = homeDir + "/pumpcontrol.settings.conf";
   {
     po::options_description generic("Generic options");
@@ -44,7 +42,7 @@ int main(int argc, char* argv[])
               ("simulation", po::value<bool>(&simulation)->default_value(false), 
                     "simulation pump driver active")
               ("serialPort", 
-                  po::value< string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"), 
+                  po::value<string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"),
                   "the full serial Port path")
               ("webSocketPort", 
                   po::value<int>(&websocket_port)->default_value(9002), 
@@ -148,7 +146,7 @@ void PumpControl::Init(string serial_port, bool simulation, int websocket_port, 
   serialport_ = serial_port;
 
   for(auto i: kPumpIngredientsInit){
-    pump_ingredients_bimap_.insert(IngredientsBiMap::value_type(i.first, i.second));
+    pump_ingredients_bimap_.insert(boost::bimap<int,std::string>::value_type(i.first, i.second));
   }
 
   webinterface_= new WebInterface(websocket_port);
@@ -604,7 +602,7 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
         response->response_code = 400;
         response->response_message = "unrecognized path";
       }
-    } catch (boost::bad_lexical_cast) {
+    } catch (boost::bad_lexical_cast&) {
         // bad parameter
     }
 
