@@ -9,7 +9,6 @@
 #include <set>
 #include <unistd.h>
 
-typedef std::map<std::string, WebInterfaceCallbackClient*> CallbackClientsMap;
 typedef websocketpp::server<websocketpp::config::asio> WebSocketServer;
 
 class WebInterface {
@@ -25,7 +24,7 @@ class WebInterface {
         void SendMessage(std::string message);
 
     private:
-        CallbackClientsMap callback_clients_;
+        WebInterfaceCallbackClient* callback_client_ = NULL;
         int port_;
         WebSocketServer server_;
         std::thread server_thread_;

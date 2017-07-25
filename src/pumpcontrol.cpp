@@ -48,7 +48,6 @@ void PumpControl::Init(string serial_port, bool simulation, int websocket_port,
     }
 
     webinterface_ = new WebInterface(websocket_port);
-    SetClientName("PumpControl");
     webinterface_->RegisterCallbackClient(this);
     bool success = webinterface_->Start();
 

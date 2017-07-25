@@ -27,11 +27,19 @@ WebInterface::~WebInterface() {
 }
 
 void WebInterface::RegisterCallbackClient(WebInterfaceCallbackClient *client) {
-    callback_clients_[client->GetClientName()] = client;
+    if( !callback_client_ ){
+        callback_client_ = client;
+    }else{
+        throw logic_error("Tried to register a client where already one is registered");
+    }
 }
 
 void WebInterface::UnregisterCallbackClient(WebInterfaceCallbackClient *client) {
-    callback_clients_.erase(client->GetClientName());
+    if( callback_client_ == client ){
+        callback_client_ = NULL;
+    }else{
+        throw logic_error("Tried to unregister a client that isn't registered");
+    }
 }
 
 void WebInterface::OnOpen(connection_hdl hdl) {
@@ -40,10 +48,8 @@ void WebInterface::OnOpen(connection_hdl hdl) {
         LOG(DEBUG)<< "WebInterface onOpen";
         connections_.insert(hdl);
     }
-    for (CallbackClientsMap::iterator i = callback_clients_.begin(); i != callback_clients_.end(); i++) {
-        i->second->WebInterfaceOnOpen();
-    }
 
+    callback_client_->WebInterfaceOnOpen();
 }
 
 void WebInterface::OnClose(connection_hdl hdl) {
@@ -60,13 +66,8 @@ void WebInterface::OnHttp(connection_hdl hdl) {
     std::string uri = con->get_resource();
     std::string met = con->get_request().get_method();
     WebInterfaceCallbackClient::HttpResponse response;
-    for(CallbackClientsMap::iterator i = callback_clients_.begin();
-            i!= callback_clients_.end();i++)
-    {
-        if(i->second->WebInterfaceHttpMessage(met,uri,body, &response)) {
-            break;
-        }
-    }
+
+    callback_client_->WebInterfaceHttpMessage(met,uri,body, &response);
 
     con->set_body(response.response_message);
     con->set_status((websocketpp::http::status_code::value)response.response_code);
