@@ -43,14 +43,4 @@ class TimeProgramRunner {
         std::string programm_id_;
 };
 
-class TimeProgramRunnerCallback {
-    public:
-        virtual ~TimeProgramRunnerCallback() {
-        }
-
-        virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent) = 0;
-        virtual void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state) = 0;
-        virtual void TimeProgramRunnerProgramEnded(std::string id) = 0;
-};
-
 #endif
