@@ -1,4 +1,8 @@
+#ifndef TIMEPROGRAMRUNNER_H
+#define TIMEPROGRAMRUNNER_H
+
 #include "pumpdriverinterface.h"
+
 #include <map>
 #include <thread>
 #include <mutex>
@@ -8,17 +12,15 @@
 #include <string>
 
 class TimeProgramRunnerCallback;
+
 class TimeProgramRunner {
     public:
-        typedef std::map<int, std::map<int,float> > TimeProgram;
+        typedef std::map<int, std::map<int, float> > TimeProgram;
 
-        enum TimeProgramRunnerState{
-            TIME_PROGRAM_INIT = 0,
-            TIME_PROGRAM_IDLE = 1,
-            TIME_PROGRAM_ACTIVE = 2,
-            TIME_PROGRAM_STOPPING = 3
+        enum TimeProgramRunnerState {
+            TIME_PROGRAM_INIT = 0, TIME_PROGRAM_IDLE = 1, TIME_PROGRAM_ACTIVE = 2, TIME_PROGRAM_STOPPING = 3
         };
-        
+
         TimeProgramRunner(TimeProgramRunnerCallback *callback_client, PumpDriverInterface *pump_driver);
         virtual ~TimeProgramRunner();
 
@@ -41,11 +43,14 @@ class TimeProgramRunner {
         std::string programm_id_;
 };
 
-class TimeProgramRunnerCallback{
+class TimeProgramRunnerCallback {
     public:
-		virtual ~TimeProgramRunnerCallback(){}
+        virtual ~TimeProgramRunnerCallback() {
+        }
 
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent) = 0;
         virtual void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state) = 0;
-        virtual void TimeProgramRunnerProgramEnded(std::string id ) = 0;
+        virtual void TimeProgramRunnerProgramEnded(std::string id) = 0;
 };
+
+#endif

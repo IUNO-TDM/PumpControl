@@ -1,9 +1,9 @@
-#include <webinterfacecallbackclient.h>
+#include "webinterfacecallbackclient.h"
 
-void WebInterfaceCallbackClient::SetClientName(std::string name){
-  callback_name_ = name;
+void WebInterfaceCallbackClient::SetClientName(std::string name) {
+    callback_name_ = name;
 }
 
-std::string WebInterfaceCallbackClient::GetClientName(){
-  return callback_name_;
+std::string WebInterfaceCallbackClient::GetClientName() {
+    return callback_name_;
 }
