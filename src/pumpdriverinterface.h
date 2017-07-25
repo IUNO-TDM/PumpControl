@@ -1,14 +1,9 @@
 #ifndef PUMPDRIVERINTERFACE_H
 #define PUMPDRIVERINTERFACE_H
 
-#include <map>
+#include "pumpdrivercallbackclient.h"
 
-class PumpDriverCallbackClient {
-    public:
-        virtual ~PumpDriverCallbackClient() {
-        }
-        virtual void PumpDriverAmountWarning(int pump_number, int amountWarningLimit) = 0;
-};
+#include <map>
 
 class PumpDriverInterface {
     public:
