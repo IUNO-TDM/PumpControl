@@ -72,11 +72,6 @@ void WebInterface::OnHttp(connection_hdl hdl) {
     con->set_status((websocketpp::http::status_code::value)response.response_code);
 }
 
-void WebInterface::OnMessage(connection_hdl hdl, WebSocketServer::message_ptr msg) {
-    LOG(DEBUG)<< "WebInterface onMessage, not implemented.";
-    SendMessage("not implemented.");
-}
-
 bool WebInterface::Start() {
     LOG(DEBUG)<< "Webinterface start on port " << port_;
     bool rv = false;
@@ -88,7 +83,6 @@ bool WebInterface::Start() {
         server_.set_open_handler(bind(&WebInterface::OnOpen,this, ::_1));
         server_.set_close_handler(bind(&WebInterface::OnClose,this,::_1));
         server_.set_http_handler(bind(&WebInterface::OnHttp,this,::_1));
-        server_.set_message_handler(bind(&WebInterface::OnMessage,this,::_1,::_2));
         server_.start_accept();
         thread t([this] {
                     this->server_.run();

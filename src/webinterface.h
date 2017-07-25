@@ -35,8 +35,6 @@ class WebInterface {
 
         void OnHttp(websocketpp::connection_hdl hdl);
 
-        void OnMessage(websocketpp::connection_hdl hdl, WebSocketServer::message_ptr msg);
-
         typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > ConList;
         ConList connections_;
 
