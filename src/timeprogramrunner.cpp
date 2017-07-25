@@ -18,24 +18,24 @@ void TimeProgramRunner::Run() {
     std::unique_lock<std::mutex> lk(time_lock_mutex_);
 
     int timeprogram_time = 0;
-    while (timeprogramrunner_state_ != TIME_PROGRAM_STOPPING) {
+    while (timeprogramrunner_state_ != TimeProgramRunnerCallback::TIME_PROGRAM_STOPPING) {
         condition_variable_.wait_until(lk, wakeup_time_point);
         {
             std::lock_guard<std::mutex> guard(state_machine_mutex_);
 
             if (timeprogramrunner_target_state_ != timeprogramrunner_state_) {
                 switch (timeprogramrunner_target_state_) {
-                    case TIME_PROGRAM_INIT:
+                    case TimeProgramRunnerCallback::TIME_PROGRAM_INIT:
                         LOG(FATAL)<< "the init state should never be actively set";
                         break;
-                        case TIME_PROGRAM_ACTIVE:
-                        if(timeprogramrunner_state_ == TIME_PROGRAM_IDLE) {
+                        case TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE:
+                        if(timeprogramrunner_state_ == TimeProgramRunnerCallback::TIME_PROGRAM_IDLE) {
                             start_time = chrono::steady_clock::now();
                             timeprogram_time = timeprogram_.begin()->first;
                         }
                         break;
-                        case TIME_PROGRAM_IDLE:
-                        if(timeprogramrunner_state_ == TIME_PROGRAM_ACTIVE) {
+                        case TimeProgramRunnerCallback::TIME_PROGRAM_IDLE:
+                        if(timeprogramrunner_state_ == TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE) {
                             callback_client_->TimeProgramRunnerProgramEnded(programm_id_);
                         }
                         break;
@@ -48,7 +48,7 @@ void TimeProgramRunner::Run() {
                 }
 
             switch (timeprogramrunner_state_) {
-                case TIME_PROGRAM_ACTIVE: {
+                case TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE: {
                     //progress update
                     int end_time = timeprogram_.rbegin()->first;
                     int current_time = chrono::duration_cast<std::chrono::milliseconds>(
@@ -68,7 +68,7 @@ void TimeProgramRunner::Run() {
                             int wakeup_time = min(current_time + 1000, timeprogram_time);
                             wakeup_time_point = start_time + chrono::milliseconds(wakeup_time);
                         } else {
-                            timeprogramrunner_target_state_ = TIME_PROGRAM_IDLE;
+                            timeprogramrunner_target_state_ = TimeProgramRunnerCallback::TIME_PROGRAM_IDLE;
                             callback_client_->TimeProgramRunnerProgressUpdate(programm_id_, 100);
                             wakeup_time_point = chrono::steady_clock::now();
                         }
@@ -78,21 +78,21 @@ void TimeProgramRunner::Run() {
                     }
                 }
                     break;
-                case TIME_PROGRAM_IDLE: {
+                case TimeProgramRunnerCallback::TIME_PROGRAM_IDLE: {
                     // for(auto i : pumpdefinitions_){
                     //     pump_driver_->SetPump(i.first, 0);
                     // }
                     wakeup_time_point = chrono::steady_clock::now() + chrono::hours(1);
                 }
                     break;
-                case TIME_PROGRAM_STOPPING: {
+                case TimeProgramRunnerCallback::TIME_PROGRAM_STOPPING: {
                     int pumpCount = pump_driver_->GetPumpCount();
                     for (int i = 1; i <= pumpCount; i++) {
                         pump_driver_->SetPump(i, 0);
                     }
                 }
                     break;
-                case TIME_PROGRAM_INIT:
+                case TimeProgramRunnerCallback::TIME_PROGRAM_INIT:
                     LOG(FATAL)<< "init state should not be met here...";
                 }
             }
@@ -101,16 +101,16 @@ void TimeProgramRunner::Run() {
 
 void TimeProgramRunner::Shutdown() {
     std::lock_guard<std::mutex> guard(state_machine_mutex_);
-    if (timeprogramrunner_state_ != TIME_PROGRAM_STOPPING) {
-        timeprogramrunner_target_state_ = TIME_PROGRAM_STOPPING;
+    if (timeprogramrunner_state_ != TimeProgramRunnerCallback::TIME_PROGRAM_STOPPING) {
+        timeprogramrunner_target_state_ = TimeProgramRunnerCallback::TIME_PROGRAM_STOPPING;
         condition_variable_.notify_one();
     }
 }
 
 void TimeProgramRunner::StartProgram(std::string id, TimeProgram time_program) {
     std::lock_guard<std::mutex> guard(state_machine_mutex_);
-    if (timeprogramrunner_state_ == TIME_PROGRAM_IDLE) {
-        timeprogramrunner_target_state_ = TIME_PROGRAM_ACTIVE;
+    if (timeprogramrunner_state_ == TimeProgramRunnerCallback::TIME_PROGRAM_IDLE) {
+        timeprogramrunner_target_state_ = TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE;
         timeprogram_ = time_program;
         programm_id_ = id;
         condition_variable_.notify_one();
@@ -119,22 +119,8 @@ void TimeProgramRunner::StartProgram(std::string id, TimeProgram time_program) {
 
 void TimeProgramRunner::EmergencyStopProgram() {
     std::lock_guard<std::mutex> guard(state_machine_mutex_);
-    if (timeprogramrunner_state_ == TIME_PROGRAM_ACTIVE) {
-        timeprogramrunner_target_state_ = TIME_PROGRAM_IDLE;
+    if (timeprogramrunner_state_ == TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE) {
+        timeprogramrunner_target_state_ = TimeProgramRunnerCallback::TIME_PROGRAM_IDLE;
         condition_variable_.notify_one();
     }
-}
-
-const char* TimeProgramRunner::NameForState(TimeProgramRunner::TimeProgramRunnerState state) {
-    switch (state) {
-        case TIME_PROGRAM_ACTIVE:
-            return "active";
-        case TIME_PROGRAM_INIT:
-            return "init";
-        case TIME_PROGRAM_IDLE:
-            return "idle";
-        case TIME_PROGRAM_STOPPING:
-            return "stopping";
-    }
-    return "internal problem";
 }
