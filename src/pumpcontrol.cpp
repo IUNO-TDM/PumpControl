@@ -470,8 +470,8 @@ bool PumpControl::WebInterfaceHttpMessage(string method, string path, string bod
 
                 } else {
                     response->response_code = 400;
-                    response->response_message = "servicemode can only be set or unset.\
-            No other function available. watch websocket!";
+                    response->response_message = "servicemode can only be set or unset. "
+                                "No other function available. watch websocket!";
                 }
             }
         } else if (path == "/program") {
@@ -502,6 +502,7 @@ bool PumpControl::WebInterfaceHttpMessage(string method, string path, string bod
 
     return true;
 }
+
 bool PumpControl::WebInterfaceWebSocketMessage(string message, string * response) {
     *response = "bla";
     return true;
@@ -521,6 +522,7 @@ void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
     webinterface_->SendMessage(json_message.dump());
 
 }
+
 void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State state) {
     LOG(DEBUG)<< "TimeProgramRunnerStateUpdate " << TimeProgramRunnerCallback::NameForState(state);
 
@@ -536,6 +538,7 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
         break;
     }
 }
+
 void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     LOG(DEBUG)<< "TimeProgramRunnerProgramEnded" << id;
     json json_message = json::object();
