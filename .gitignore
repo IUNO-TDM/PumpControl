@@ -4,3 +4,5 @@ build
 lib/downloaded
 *.downloaded
 logs
+/.cproject
+/.project
