@@ -73,18 +73,8 @@ void WebInterface::OnHttp(connection_hdl hdl) {
 }
 
 void WebInterface::OnMessage(connection_hdl hdl, WebSocketServer::message_ptr msg) {
-    LOG(DEBUG)<< "WebInterface onMessage";
-    std::string response;
-    for(CallbackClientsMap::iterator i = callback_clients_.begin();
-            i!= callback_clients_.end(); i++)
-    {
-        if(i->second->WebInterfaceWebSocketMessage(msg->get_payload(),&response)) {
-            break;
-        };
-    }
-    if (response.length() > 0) {
-        SendMessage(response);
-    }
+    LOG(DEBUG)<< "WebInterface onMessage, not implemented.";
+    SendMessage("not implemented.");
 }
 
 bool WebInterface::Start() {

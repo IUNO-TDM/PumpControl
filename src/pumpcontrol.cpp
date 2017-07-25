@@ -503,11 +503,6 @@ bool PumpControl::WebInterfaceHttpMessage(string method, string path, string bod
     return true;
 }
 
-bool PumpControl::WebInterfaceWebSocketMessage(string message, string * response) {
-    *response = "bla";
-    return true;
-}
-
 void PumpControl::WebInterfaceOnOpen() {
     json json_message = json::object();
     json_message["mode"] = NameForPumpControlState(pumpcontrol_state_);
