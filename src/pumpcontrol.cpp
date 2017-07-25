@@ -2,111 +2,17 @@
 #include "pumpdriversimulation.h"
 #include "pumpdriverfirmata.h"
 
+#include "easylogging++.h"
+
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
-#include <boost/program_options.hpp>
-
-#include <chrono>
-#include <csignal>
-#include <climits>
-#include <cfloat>
-#include <stdlib.h>
 
 using namespace std;
 using namespace nlohmann;
 
-namespace po = boost::program_options;
-
-INITIALIZE_EASYLOGGINGPP
-
-int main(int argc, char* argv[]) {
-
-    bool simulation;
-    int websocket_port;
-    string serial_port;
-    string config_file;
-    string homeDir = getenv("HOME");
-    map<int, PumpDriverInterface::PumpDefinition> pump_definitions;
-    string std_conf_location = homeDir + "/pumpcontrol.settings.conf";
-    {
-        po::options_description generic("Generic options");
-        generic.add_options()("version,v", "print version string")("help", "produce help message")("config,c",
-                po::value<string>(&config_file)->default_value(std_conf_location),
-                "name of a file of a configuration.");
-
-        po::options_description config("Configuration");
-        config.add_options()("simulation", po::value<bool>(&simulation)->default_value(false),
-                "simulation pump driver active")("serialPort",
-                po::value<string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"),
-                "the full serial Port path")("webSocketPort", po::value<int>(&websocket_port)->default_value(9002),
-                "The port of the listening WebSocket");
-
-        po::options_description pump_config("PumpConfiguration");
-        string pump_config_str = "pump.configuration.";
-        for (int i = 1; i <= 8; i++) {
-            pump_definitions[i] = PumpDriverInterface::PumpDefinition();
-            pump_config.add_options()((pump_config_str + to_string(i) + ".output").c_str(),
-                    po::value<int>(&(pump_definitions[i].output))->default_value(i),
-                    (string("Output Pin for pump number ") + to_string(i)).c_str())(
-                    (pump_config_str + to_string(i) + ".flow_precision").c_str(),
-                    po::value<float>(&(pump_definitions[i].flow_precision))->default_value((0.00143 - 0.0007) / 128),
-                    (string("Flow Precision for pump number ") + to_string(i)).c_str())(
-                    (pump_config_str + to_string(i) + ".min_flow").c_str(),
-                    po::value<float>(&(pump_definitions[i].min_flow))->default_value(0.0007),
-                    (string("Min Flow for pump number ") + to_string(i)).c_str())(
-                    (pump_config_str + to_string(i) + ".max_flow").c_str(),
-                    po::value<float>(&(pump_definitions[i].max_flow))->default_value(0.00143),
-                    (string("Max Flow for pump number ") + to_string(i)).c_str());
-
-        }
-
-        po::options_description cmdline_options;
-        cmdline_options.add(generic).add(config);
-
-        po::options_description config_file_options;
-        config_file_options.add(config).add(pump_config);
-
-        po::options_description visible("Allowed options");
-        visible.add(generic).add(config);
-        po::variables_map vm;
-        store(po::command_line_parser(argc, argv).options(cmdline_options).run(), vm);
-        notify(vm);
-
-        ifstream ifs(config_file.c_str());
-        if (!ifs) {
-            LOG(INFO)<< "Can not open config file: " << config_file;
-        }
-        else
-        {
-            store(parse_config_file(ifs, config_file_options), vm);
-            notify(vm);
-        }
-
-        if (vm.count("help")) {
-            cout << visible << "\n";
-            return 0;
-        }
-
-        if (vm.count("version")) {
-            cout << "Multiple sources example, version 1.0\n";
-            return 0;
-        }
-    }
-
-    PumpControl *pump_control = new PumpControl(serial_port.c_str(), simulation, websocket_port, pump_definitions);
-
-    cin.get();
-
-    delete pump_control;
-    LOG(INFO)<< "Application closes now";
-    el::Loggers::flushAll();
-    return 0;
-}
-
 PumpControl::PumpControl(string serial_port, bool simulation, int websocket_port,
-        std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
+        map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
     Init(serial_port, simulation, websocket_port, pump_definitions);
 }
 
@@ -132,13 +38,13 @@ PumpControl::~PumpControl() {
 }
 
 void PumpControl::Init(string serial_port, bool simulation, int websocket_port,
-        std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
+        map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
     simulation_ = simulation;
     pump_definitions_ = pump_definitions;
     serialport_ = serial_port;
 
     for (auto i : kPumpIngredientsInit) {
-        pump_ingredients_bimap_.insert(boost::bimap<int, std::string>::value_type(i.first, i.second));
+        pump_ingredients_bimap_.insert(boost::bimap<int, string>::value_type(i.first, i.second));
     }
 
     webinterface_ = new WebInterface(websocket_port);
@@ -203,7 +109,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
             int timing = line["timing"].get<int>();
 
             if(timing == 0 || timing == 1) {
-                for(auto component: line["components"].get<std::vector<json>>()) {
+                for(auto component: line["components"].get<vector<json>>()) {
                     string ingredient = component["ingredient"].get<string>();
                     int amount = component["amount"].get<int>();
                     int pump_number = pump_ingredients_bimap_.right.at(ingredient);
@@ -220,7 +126,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                 time = max_time;
             } else if (timing == 2) {
 
-                auto component_vector = line["components"].get<std::vector<json>>();
+                auto component_vector = line["components"].get<vector<json>>();
                 map<int, float> min_time_map;
                 map<int, float> max_time_map;
                 for(auto component: component_vector) {
@@ -282,7 +188,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
 
                 time = end_time;
             } else if (timing == 3) {
-                for(auto component: line["components"].get<std::vector<json>>()) {
+                for(auto component: line["components"].get<vector<json>>()) {
                     string ingredient = component["ingredient"].get<string>();
                     int amount = component["amount"].get<int>();
                     int pump_number = pump_ingredients_bimap_.right.at(ingredient);
@@ -301,7 +207,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
 
             time += sleep + 1;
         }
-    } catch(const std::exception& ex) {
+    } catch(const exception& ex) {
         LOG(ERROR)<<"Failed to create timeprogram: "<<ex.what();
         time = -1;
         json json_message = json::object();
@@ -400,7 +306,7 @@ const char* PumpControl::NameForPumpControlState(PumpControlState state) {
     return "internal problem";
 }
 
-bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, std::string body,
+bool PumpControl::WebInterfaceHttpMessage(string method, string path, string body,
         HttpResponse *response) {
     printf("HTTP Message: Method: %s,Path:%s, Body:%s\n", method.c_str(), path.c_str(), body.c_str());
     response->response_code = 400;
@@ -596,7 +502,7 @@ bool PumpControl::WebInterfaceHttpMessage(std::string method, std::string path, 
 
     return true;
 }
-bool PumpControl::WebInterfaceWebSocketMessage(std::string message, std::string * response) {
+bool PumpControl::WebInterfaceWebSocketMessage(string message, string * response) {
     *response = "bla";
     return true;
 }
@@ -607,7 +513,7 @@ void PumpControl::WebInterfaceOnOpen() {
     webinterface_->SendMessage(json_message.dump());
 }
 
-void PumpControl::TimeProgramRunnerProgressUpdate(std::string id, int percent) {
+void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
     LOG(DEBUG)<< "TimeProgramRunnerProgressUpdate " << percent << " : " << id;
     json json_message = json::object();
     json_message["progressUpdate"]["orderName"] = id;
@@ -630,7 +536,7 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
         break;
     }
 }
-void PumpControl::TimeProgramRunnerProgramEnded(std::string id) {
+void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     LOG(DEBUG)<< "TimeProgramRunnerProgramEnded" << id;
     json json_message = json::object();
     json_message["programEnded"]["orderName"] = id;

@@ -1,11 +1,8 @@
 #ifndef PUMPCONTROL_H
 #define PUMPCONTROL_H
 
-#include "firmata.h"
 #include "json.hpp"
 #include "webinterface.h"
-#include "easylogging++.h"
-#include "pumpdriverinterface.h"
 #include "timeprogramrunner.h"
 
 #include <unistd.h>
@@ -34,12 +31,12 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
         bool WebInterfaceHttpMessage(std::string method, std::string path, std::string body, HttpResponse *response);
         bool WebInterfaceWebSocketMessage(std::string message, std::string * response);
         void WebInterfaceOnOpen();
+
         //TimeProgramRunnerCallback
         void TimeProgramRunnerProgressUpdate(std::string id, int percent);
         void TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State state);
         void TimeProgramRunnerProgramEnded(std::string id);
         void PumpDriverAmountWarning(int pump_number, int amount_left);
-        // void TimeProgramRunnerAmountWarning(int pump_number, int amount_left);
 
     private:
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
