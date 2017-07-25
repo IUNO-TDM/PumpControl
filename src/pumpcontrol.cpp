@@ -615,14 +615,14 @@ void PumpControl::TimeProgramRunnerProgressUpdate(std::string id, int percent) {
     webinterface_->SendMessage(json_message.dump());
 
 }
-void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state) {
-    LOG(DEBUG)<< "TimeProgramRunnerStateUpdate " << TimeProgramRunner::NameForState(state);
+void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State state) {
+    LOG(DEBUG)<< "TimeProgramRunnerStateUpdate " << TimeProgramRunnerCallback::NameForState(state);
 
     switch(state) {
-        case TimeProgramRunner::TimeProgramRunnerState::TIME_PROGRAM_IDLE:
+        case TimeProgramRunnerCallback::TIME_PROGRAM_IDLE:
         SetPumpControlState(PUMP_STATE_IDLE);
         break;
-        case TimeProgramRunner::TimeProgramRunnerState::TIME_PROGRAM_ACTIVE:
+        case TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE:
         SetPumpControlState(PUMP_STATE_ACTIVE);
         break;
         default:

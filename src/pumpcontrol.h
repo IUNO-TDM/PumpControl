@@ -36,7 +36,7 @@ class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCa
         void WebInterfaceOnOpen();
         //TimeProgramRunnerCallback
         void TimeProgramRunnerProgressUpdate(std::string id, int percent);
-        void TimeProgramRunnerStateUpdate(TimeProgramRunner::TimeProgramRunnerState state);
+        void TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State state);
         void TimeProgramRunnerProgramEnded(std::string id);
         void PumpDriverAmountWarning(int pump_number, int amount_left);
         // void TimeProgramRunnerAmountWarning(int pump_number, int amount_left);
