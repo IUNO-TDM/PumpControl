@@ -13,6 +13,11 @@ typedef websocketpp::server<websocketpp::config::asio> WebSocketServer;
 
 class WebInterface {
     public:
+        struct HttpResponse {
+                int response_code;
+                std::string response_message;
+        };
+
         WebInterface(int port);
         virtual ~WebInterface();
 
@@ -33,6 +38,9 @@ class WebInterface {
         void OnClose(websocketpp::connection_hdl hdl);
 
         void OnHttp(websocketpp::connection_hdl hdl);
+
+        bool WebInterfaceHttpMessage(std::string method, std::string path, std::string body,
+                HttpResponse *response);
 
         typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > ConList;
         ConList connections_;

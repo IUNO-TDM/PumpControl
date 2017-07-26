@@ -79,11 +79,9 @@ void PumpControl::Init(string serial_port, bool simulation, int websocket_port,
 
 }
 
-bool PumpControl::Start(const char* recipe_json_string) {
-    bool success = false;
-    success = SetPumpControlState(PUMP_STATE_ACTIVE);
+void PumpControl::StartProgram(const char* recipe_json_string) {
+    SetPumpControlState(PUMP_STATE_ACTIVE);
     json j = json::parse(recipe_json_string);
-
     int max_time = CreateTimeProgram(j["recipe"], timeprogram_);
     if (max_time > 0) {
         string recipe_id = j["recipe"]["id"];
@@ -93,8 +91,6 @@ bool PumpControl::Start(const char* recipe_json_string) {
     } else {
         SetPumpControlState(PUMP_STATE_IDLE);
     }
-
-    return success;
 }
 
 int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timeprogram) {
@@ -247,7 +243,7 @@ void PumpControl::SeparateTooFastIngredients(vector<int> *separated_pumps, map<i
         map<int, float> max_list) {
     int smallest_max_element = GetMinElement(max_list);
     int biggest_min_element = GetMaxElement(min_list);
-    LOG(DEBUG)<< "smallest max " << max_list[smallest_max_element] << "bigges min " << min_list[biggest_min_element];
+    LOG(DEBUG)<< "smallest max " << max_list[smallest_max_element] << "biggest min " << min_list[biggest_min_element];
     if (max_list[smallest_max_element] < min_list[biggest_min_element]) {
         separated_pumps->push_back(smallest_max_element);
         min_list.erase(smallest_max_element);
@@ -256,256 +252,44 @@ void PumpControl::SeparateTooFastIngredients(vector<int> *separated_pumps, map<i
     }
 }
 
-bool PumpControl::SetPumpControlState(PumpControlState state) {
-    bool rv = false;
-    LOG(DEBUG)<< "SetPumpControlState: " << NameForPumpControlState(state);
+void PumpControl::SetPumpControlState(PumpControlState state) {
+    bool success = false;
+    LOG(DEBUG)<< "SetPumpControlState: " << WebInterfaceCallbackClient::NameForPumpControlState(state);
     switch (state) {
         case PUMP_STATE_ACTIVE:
             if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
                 pumpcontrol_state_ = state;
-                rv = true;
+                success = true;
             }
             break;
         case PUMP_STATE_SERVICE:
             if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
                 pumpcontrol_state_ = state;
-                rv = true;
+                success = true;
             }
             break;
         case PUMP_STATE_UNINITIALIZED:
             break;
         default:
             pumpcontrol_state_ = state;
-            rv = true;
+            success = true;
             break;
-
     }
-    if (rv) {
-        LOG(DEBUG)<< "send update to websocketclients: " << NameForPumpControlState(state);
+
+    if (success) {
+        LOG(DEBUG)<< "send update to websocketclients: " << WebInterfaceCallbackClient::NameForPumpControlState(state);
         json json_message = json::object();
-        json_message["mode"] = NameForPumpControlState(pumpcontrol_state_);
+        json_message["mode"] = WebInterfaceCallbackClient::NameForPumpControlState(pumpcontrol_state_);
         webinterface_->SendMessage(json_message.dump());
     }
-    return rv;
-}
 
-const char* PumpControl::NameForPumpControlState(PumpControlState state) {
-    switch (state) {
-        case PUMP_STATE_ACTIVE:
-            return "active";
-        case PUMP_STATE_ERROR:
-            return "error";
-        case PUMP_STATE_IDLE:
-            return "idle";
-        case PUMP_STATE_SERVICE:
-            return "service";
-        case PUMP_STATE_UNINITIALIZED:
-            return "uninitialized";
+    if(!success){
+        throw logic_error("State switch not allowed.");
     }
-    return "internal problem";
 }
 
-bool PumpControl::WebInterfaceHttpMessage(string method, string path, string body,
-        HttpResponse *response) {
-    printf("HTTP Message: Method: %s,Path:%s, Body:%s\n", method.c_str(), path.c_str(), body.c_str());
-    response->response_code = 400;
-    response->response_message = "Ey yo - nix";
-    try {
-        if (boost::starts_with(path, "/ingredients/")) {
-            boost::regex expr { "\\/ingredients\\/([0-9]{1,2}(\\/amount)?)" };
-            boost::smatch what;
-            if (boost::regex_search(path, what, expr)) {
-                int nr = stoi(what[1].str());
-                if (what.size() == 3 && what[2].str() == "/amount") {
-                    if (method == "PUT") {
-                        if (body.length() > 0) {
-                            auto it = pump_ingredients_bimap_.left.find(nr);
-                            if (it != pump_ingredients_bimap_.left.end()) {
-                                try {
-                                    int amount = atoi(body.c_str());
-                                    pumpdriver_->SetAmountForPump(nr, amount);
-                                    LOG(DEBUG)<< amount << "ml has been set for pump " << nr;
-                                    response->response_code = 200;
-                                    response->response_message = "Successfully stored amount for ingredient for pump";
-                                } catch (exception& e) {
-                                    LOG(ERROR)<< e.what();
-                                    response->response_code = 400;
-                                    response->response_message = "The body is invalid";
-                                }
-                            } else {
-                                LOG(DEBUG)<< "Amount for pump nr " << nr << "cant be set, because it is not configured";
-                                response->response_code = 400;
-                                response->response_message = "This pump is not configured";
-                            }
-                        } else {
-                            response->response_code = 400;
-                            response->response_message = "Body is empty";
-                        }
-                    } else {
-                        response->response_code = 400;
-                        response->response_message = "Wrong method for this URL";
-                    }
-                } else {
-                    if (method == "GET") {
-                        if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()) {
-                            response->response_code = 200;
-                            response->response_message = pump_ingredients_bimap_.left.at(nr);
-                        } else {
-                            response->response_code = 404;
-                            response->response_message = "No ingredient for this pump number available!";
-                        }
-                    } else if (method == "PUT") {
-                        if(body.length()> 0) {
-                            auto it = pump_ingredients_bimap_.left.find(nr);
-                            pump_ingredients_bimap_.left.replace_data(it,body);
-                            LOG(DEBUG) << "Pump number " << nr << "is now bound to "<< body;
-                            response->response_code = 200;
-                            response->response_message = "Successfully stored ingredient for pump";
-
-                        }
-                    } else if (method == "DELETE") {
-                        if(pump_ingredients_bimap_.left.find(nr) != pump_ingredients_bimap_.left.end()) {
-                            pump_ingredients_bimap_.left.erase(nr);
-                            response->response_code = 200;
-                            response->response_message = "Successfully deleted ingredient for pump";
-                        } else {
-                            response->response_code = 404;
-                            response->response_message = "No ingredient for this pump number available!";
-                        }
-                    } else {
-                        response->response_code = 400;
-                        response->response_message = "Wrong method for this URL";
-                    }
-                }
-            }
-        } else if (boost::starts_with(path,"/pumps")) {
-            if (method == "GET") {
-                json responseJson = json::object();
-                for(auto i: pump_definitions_) {
-                    char key[3];
-                    sprintf(key,"%d",i.first);
-                    json pump = json::object();
-                    pump["minFlow"] = i.second.min_flow;
-                    pump["maxFlow"] = i.second.max_flow;
-                    pump["flowPrecision"] = i.second.flow_precision;
-                    responseJson[key]= pump;
-                }
-                response->response_code = 200;
-                response->response_message = responseJson.dump();
-
-            }
-        } else if (boost::starts_with(path,"/service")) {
-            if (boost::starts_with(path,"/service/pumps/")) {
-                boost::regex expr {"\\/service\\/pumps\\/([0-9]{1,2})"};
-                boost::smatch what;
-                if(boost::regex_search(path,what,expr) &&
-                        method == "PUT" && (body == "true" || body == "false")) {
-                    int nr = stoi(what[1].str());
-                    if(pumpcontrol_state_ == PUMP_STATE_SERVICE) {
-                        auto it = pump_definitions_.find(nr);
-                        if(it != pump_definitions_.end()) {
-                            pumpdriver_->SetPump(nr,body=="true"?it->second.max_flow:0);
-                            printf("Pump %d should be switched to %s\n",nr,body.c_str() );
-                            response->response_code = 200;
-                            response->response_message = "SUCCESS";
-
-                            json json_message = json::object();
-                            json_message["service"]["pump"] = nr;
-                            json_message["service"]["flow"] = body=="true"?it->second.max_flow:0;
-                            webinterface_->SendMessage(json_message.dump());
-                        } else {
-                            response->response_code = 400;
-                            response->response_message = "Requested Pump not available";
-                        }
-                    } else {
-                        response->response_code = 400;
-                        response->response_message = "PumpControl not in Service mode";
-                    }
-                } else {
-                    response->response_code = 400;
-                    response->response_message = "wrong format to control pumps in service mode";
-                }
-            } else if (path == "/service" ||path == "/service/" ) {
-                if (method == "PUT") {
-                    if (body == "true") {
-                        if (pumpcontrol_state_ == PUMP_STATE_IDLE ) {
-                            bool rv = SetPumpControlState(PUMP_STATE_SERVICE);
-                            if(rv) {
-                                response->response_code = 200;
-                                response->response_message = "Successfully changed to Service state";
-                            } else {
-                                response->response_code = 500;
-                                response->response_message = "Could not set Service mode";
-                            }
-
-                        } else if (pumpcontrol_state_ == PUMP_STATE_SERVICE) {
-                            response->response_code = 300;
-                            response->response_message = "is already Service state";
-                        } else {
-                            response->response_code = 400;
-                            response->response_message = "Currently in wrong state for Service";
-                        }
-                    } else if (body == "false") {
-                        if( pumpcontrol_state_ == PUMP_STATE_SERVICE) {
-                            bool rv = SetPumpControlState(PUMP_STATE_IDLE);
-                            if(rv) {
-                                response->response_code = 200;
-                                response->response_message = "Successfully changed to Idle state";
-                            } else {
-                                response->response_code = 500;
-                                response->response_message = "Could not set idle mode";
-                            }
-                        } else if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
-                            response->response_code = 300;
-                            response->response_message = "is already idle state";
-                        } else {
-                            response->response_code = 400;
-                            response->response_message = "Currently in wrong state for idle";
-                        }
-                    } else {
-                        response->response_code = 400;
-                        response->response_message = "incorrect parameter";
-                    }
-
-                } else {
-                    response->response_code = 400;
-                    response->response_message = "servicemode can only be set or unset. "
-                                "No other function available. watch websocket!";
-                }
-            }
-        } else if (path == "/program") {
-            if(method == "PUT") {
-                if(pumpcontrol_state_ == PUMP_STATE_IDLE) {
-                    if(Start(body.c_str())) {
-                        response->response_code = 200;
-                        response->response_message = "SUCCESS";
-                    } else {
-                        response->response_code = 500;
-                        response->response_message = "Could not start the Program";
-                    }
-                } else {
-                    response->response_code = 400;
-                    response->response_message = "PumpControl must be in mode idle to upload a program";
-                }
-            } else {
-                response->response_code = 400;
-                response->response_message = "wrong method for program upload";
-            }
-        } else {
-            response->response_code = 400;
-            response->response_message = "unrecognized path";
-        }
-    } catch (boost::bad_lexical_cast&) {
-        // bad parameter
-    }
-
-    return true;
-}
-
-void PumpControl::WebInterfaceOnOpen() {
-    json json_message = json::object();
-    json_message["mode"] = NameForPumpControlState(pumpcontrol_state_);
-    webinterface_->SendMessage(json_message.dump());
+WebInterfaceCallbackClient::PumpControlState PumpControl::GetPumpControlState() const {
+    return pumpcontrol_state_;
 }
 
 void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
@@ -551,3 +335,53 @@ void PumpControl::PumpDriverAmountWarning(int pump_number, int amountWarningLimi
     json_message["amountWarning"]["amountWarningLimit"] = amountWarningLimit;
     webinterface_->SendMessage(json_message.dump());
 }
+
+void PumpControl::SetAmountForPump(int pump_number, int amount){
+    if(pump_ingredients_bimap_.left.find(pump_number) == pump_ingredients_bimap_.left.end()) {
+         throw out_of_range("Pump number given doesn't exist");
+    }
+    pumpdriver_->SetAmountForPump(pump_number, amount);
+}
+
+string PumpControl::GetIngredientForPump(int pump_number) const{
+    if(pump_ingredients_bimap_.left.find(pump_number) == pump_ingredients_bimap_.left.end()) {
+        throw out_of_range("Pump number given doesn't exist");
+    }
+    return pump_ingredients_bimap_.left.at(pump_number);
+}
+
+void PumpControl::SetIngredientForPump(int pump_number, const std::string& ingredient) {
+    auto it = pump_ingredients_bimap_.left.find(pump_number);
+    if(it == pump_ingredients_bimap_.left.end())    {
+        throw out_of_range("Pump number given doesn't exist");
+    }
+    pump_ingredients_bimap_.left.replace_data(it, ingredient);
+}
+
+void PumpControl::DeleteIngredientForPump(int pump_number){
+    if(pump_ingredients_bimap_.left.find(pump_number) == pump_ingredients_bimap_.left.end()) {
+        throw out_of_range("Pump number given doesn't exist");
+    }
+    pump_ingredients_bimap_.left.erase(pump_number);
+}
+
+size_t PumpControl::GetNumberOfPumps() const {
+    return pump_definitions_.size();
+}
+
+PumpDriverInterface::PumpDefinition PumpControl::GetPumpDefinition(size_t pump_index) const {
+    const PumpDriverInterface::PumpDefinition& pump_definition = pump_definitions_.at(pump_index);
+    return pump_definition;
+}
+
+float PumpControl::SwitchPump(size_t pump_index, bool switch_on) {
+    const PumpDriverInterface::PumpDefinition& pump_definition = GetPumpDefinition(pump_index);
+    float new_flow = switch_on ? pump_definition.max_flow : 0;
+    pumpdriver_->SetPump(pump_index, new_flow);
+    return new_flow;
+}
+
+
+
+
+
