@@ -1,7 +1,7 @@
 #ifndef WEBINTERFACE_H
 #define WEBINTERFACE_H
 
-#include "webinterfacecallbackclient.h"
+#include "pumpcontrolinterface.h"
 #include "websocketpp/config/asio_no_tls.hpp"
 #include "websocketpp/server.hpp"
 
@@ -21,15 +21,15 @@ class WebInterface {
         WebInterface(int port);
         virtual ~WebInterface();
 
-        void RegisterCallbackClient(WebInterfaceCallbackClient *);
-        void UnregisterCallbackClient(WebInterfaceCallbackClient *);
+        void RegisterCallbackClient(PumpControlInterface *);
+        void UnregisterCallbackClient(PumpControlInterface *);
         void Init(int port);
         bool Start();
         void Stop();
         void SendMessage(std::string message);
 
     private:
-        WebInterfaceCallbackClient* callback_client_ = NULL;
+        PumpControlInterface* callback_client_ = NULL;
         int port_;
         WebSocketServer server_;
         std::thread server_thread_;

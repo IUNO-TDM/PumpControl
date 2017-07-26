@@ -32,7 +32,7 @@ WebInterface::~WebInterface() {
     }
 }
 
-void WebInterface::RegisterCallbackClient(WebInterfaceCallbackClient *client) {
+void WebInterface::RegisterCallbackClient(PumpControlInterface *client) {
     if( !callback_client_ ){
         callback_client_ = client;
     }else{
@@ -40,7 +40,7 @@ void WebInterface::RegisterCallbackClient(WebInterfaceCallbackClient *client) {
     }
 }
 
-void WebInterface::UnregisterCallbackClient(WebInterfaceCallbackClient *client) {
+void WebInterface::UnregisterCallbackClient(PumpControlInterface *client) {
     if( callback_client_ == client ){
         callback_client_ = NULL;
     }else{
@@ -56,7 +56,7 @@ void WebInterface::OnOpen(connection_hdl hdl) {
     }
 
     json json_message = json::object();
-    json_message["mode"] = WebInterfaceCallbackClient::NameForPumpControlState(callback_client_->GetPumpControlState());
+    json_message["mode"] = PumpControlInterface::NameForPumpControlState(callback_client_->GetPumpControlState());
     SendMessage(json_message.dump());
 }
 
@@ -181,7 +181,7 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
                 if(boost::regex_search(path,what,expr) &&
                         method == "PUT" && (body == "true" || body == "false")) {
                     int nr = stoi(what[1].str());
-                    if(callback_client_->GetPumpControlState() == WebInterfaceCallbackClient::PUMP_STATE_SERVICE) {
+                    if(callback_client_->GetPumpControlState() == PumpControlInterface::PUMP_STATE_SERVICE) {
                         try {
                             float new_flow = callback_client_->SwitchPump(nr-1, (body=="true"));
                             printf("Pump %d should be switched to %s\n",nr,body.c_str() );
@@ -207,17 +207,17 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
             } else if (path == "/service" ||path == "/service/" ) {
                 if (method == "PUT") {
                     if (body == "true") {
-                        WebInterfaceCallbackClient::PumpControlState pump_control_state = callback_client_->GetPumpControlState();
-                        if( pump_control_state == WebInterfaceCallbackClient::PUMP_STATE_IDLE) {
+                        PumpControlInterface::PumpControlState pump_control_state = callback_client_->GetPumpControlState();
+                        if( pump_control_state == PumpControlInterface::PUMP_STATE_IDLE) {
                             try{
-                                callback_client_->SetPumpControlState(WebInterfaceCallbackClient::PUMP_STATE_SERVICE);
+                                callback_client_->SetPumpControlState(PumpControlInterface::PUMP_STATE_SERVICE);
                                 response->response_code = 200;
                                 response->response_message = "Successfully changed to Service state";
                             } catch(logic_error&) {
                                 response->response_code = 500;
                                 response->response_message = "Could not set Service mode";
                             }
-                        } else if (pump_control_state == WebInterfaceCallbackClient::PUMP_STATE_SERVICE) {
+                        } else if (pump_control_state == PumpControlInterface::PUMP_STATE_SERVICE) {
                             response->response_code = 300;
                             response->response_message = "is already Service state";
                         } else {
@@ -225,17 +225,17 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
                             response->response_message = "Currently in wrong state for Service";
                         }
                     } else if (body == "false") {
-                        WebInterfaceCallbackClient::PumpControlState pump_control_state = callback_client_->GetPumpControlState();
-                        if( pump_control_state == WebInterfaceCallbackClient::PUMP_STATE_SERVICE) {
+                        PumpControlInterface::PumpControlState pump_control_state = callback_client_->GetPumpControlState();
+                        if( pump_control_state == PumpControlInterface::PUMP_STATE_SERVICE) {
                             try {
-                                callback_client_->SetPumpControlState(WebInterfaceCallbackClient::PUMP_STATE_IDLE);
+                                callback_client_->SetPumpControlState(PumpControlInterface::PUMP_STATE_IDLE);
                                 response->response_code = 200;
                                 response->response_message = "Successfully changed to Idle state";
                             } catch(logic_error&) {
                                 response->response_code = 500;
                                 response->response_message = "Could not set idle mode";
                             }
-                        } else if (pump_control_state == WebInterfaceCallbackClient::PUMP_STATE_IDLE) {
+                        } else if (pump_control_state == PumpControlInterface::PUMP_STATE_IDLE) {
                             response->response_code = 300;
                             response->response_message = "is already idle state";
                         } else {
@@ -255,8 +255,8 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
             }
         } else if (path == "/program") {
             if(method == "PUT") {
-                WebInterfaceCallbackClient::PumpControlState pump_control_state = callback_client_->GetPumpControlState();
-                if(pump_control_state == WebInterfaceCallbackClient::PUMP_STATE_IDLE) {
+                PumpControlInterface::PumpControlState pump_control_state = callback_client_->GetPumpControlState();
+                if(pump_control_state == PumpControlInterface::PUMP_STATE_IDLE) {
                     try {
                         callback_client_->StartProgram(body.c_str());
                         response->response_code = 200;

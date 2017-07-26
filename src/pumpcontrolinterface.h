@@ -1,11 +1,11 @@
-#ifndef WEBINTERFACECALLBACKCLIENT_H
-#define WEBINTERFACECALLBACKCLIENT_H
+#ifndef PUMPCONTROLINTERFACE_H
+#define PUMPCONTROLINTERFACE_H
 
 #include "pumpdriverinterface.h"
 #include <string>
 #include <unistd.h>
 
-class WebInterfaceCallbackClient {
+class PumpControlInterface {
     public:
         enum PumpControlState {
             PUMP_STATE_UNINITIALIZED = 0,
@@ -31,7 +31,7 @@ class WebInterfaceCallbackClient {
             return "internal problem";
         }
 
-        virtual ~WebInterfaceCallbackClient() {
+        virtual ~PumpControlInterface() {
         }
 
         virtual PumpControlState GetPumpControlState() const = 0;

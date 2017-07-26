@@ -11,7 +11,7 @@
 #include <thread>
 #include <boost/bimap.hpp>
 
-class PumpControl: public WebInterfaceCallbackClient, public TimeProgramRunnerCallback, public PumpDriverCallbackClient {
+class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback, public PumpDriverCallbackClient {
 
     public:
         PumpControl(std::string serial_port, bool simulation, int websocket_port,

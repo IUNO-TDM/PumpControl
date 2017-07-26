@@ -254,7 +254,7 @@ void PumpControl::SeparateTooFastIngredients(vector<int> *separated_pumps, map<i
 
 void PumpControl::SetPumpControlState(PumpControlState state) {
     bool success = false;
-    LOG(DEBUG)<< "SetPumpControlState: " << WebInterfaceCallbackClient::NameForPumpControlState(state);
+    LOG(DEBUG)<< "SetPumpControlState: " << PumpControlInterface::NameForPumpControlState(state);
     switch (state) {
         case PUMP_STATE_ACTIVE:
             if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
@@ -277,9 +277,9 @@ void PumpControl::SetPumpControlState(PumpControlState state) {
     }
 
     if (success) {
-        LOG(DEBUG)<< "send update to websocketclients: " << WebInterfaceCallbackClient::NameForPumpControlState(state);
+        LOG(DEBUG)<< "send update to websocketclients: " << PumpControlInterface::NameForPumpControlState(state);
         json json_message = json::object();
-        json_message["mode"] = WebInterfaceCallbackClient::NameForPumpControlState(pumpcontrol_state_);
+        json_message["mode"] = PumpControlInterface::NameForPumpControlState(pumpcontrol_state_);
         webinterface_->SendMessage(json_message.dump());
     }
 
@@ -288,7 +288,7 @@ void PumpControl::SetPumpControlState(PumpControlState state) {
     }
 }
 
-WebInterfaceCallbackClient::PumpControlState PumpControl::GetPumpControlState() const {
+PumpControlInterface::PumpControlState PumpControl::GetPumpControlState() const {
     return pumpcontrol_state_;
 }
 
