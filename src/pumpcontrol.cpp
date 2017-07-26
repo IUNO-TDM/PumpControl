@@ -205,11 +205,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
     } catch(const exception& ex) {
         LOG(ERROR)<<"Failed to create timeprogram: "<<ex.what();
         time = -1;
-        json json_message = json::object();
-        json_message["error"]["type"] = "TimeProgramParseError";
-        json_message["error"]["nr"] = 1;
-        json_message["error"]["details"] = ex.what();
-        webinterface_->SendMessage(json_message.dump());
+        webinterface_->Error("TimeProgramParseError", 1, ex.what());
     }
 
     return time;
@@ -277,10 +273,7 @@ void PumpControl::SetPumpControlState(PumpControlState state) {
     }
 
     if (success) {
-        LOG(DEBUG)<< "send update to websocketclients: " << PumpControlInterface::NameForPumpControlState(state);
-        json json_message = json::object();
-        json_message["mode"] = PumpControlInterface::NameForPumpControlState(pumpcontrol_state_);
-        webinterface_->SendMessage(json_message.dump());
+        webinterface_->NewPumpControlState(pumpcontrol_state_);
     }
 
     if(!success){
@@ -294,11 +287,7 @@ PumpControlInterface::PumpControlState PumpControl::GetPumpControlState() const 
 
 void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
     LOG(DEBUG)<< "TimeProgramRunnerProgressUpdate " << percent << " : " << id;
-    json json_message = json::object();
-    json_message["progressUpdate"]["orderName"] = id;
-    json_message["progressUpdate"]["progress"] = percent;
-    webinterface_->SendMessage(json_message.dump());
-
+    webinterface_->ProgressUpdate(id, percent);
 }
 
 void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State state) {
@@ -319,21 +308,14 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
 
 void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     LOG(DEBUG)<< "TimeProgramRunnerProgramEnded" << id;
-    json json_message = json::object();
-    json_message["programEnded"]["orderName"] = id;
-    webinterface_->SendMessage(json_message.dump());
+    webinterface_->ProgramEnded(id);
     timeprogram_.clear();
 }
 
-void PumpControl::PumpDriverAmountWarning(int pump_number, int amountWarningLimit) {
-    string ingredient = pump_ingredients_bimap_.left.at(pump_number);
-
-    LOG(DEBUG)<< "PumpDriverAmountWarning: nr:" << pump_number << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
-    json json_message = json::object();
-    json_message["amountWarning"]["pumpNr"] = pump_number;
-    json_message["amountWarning"]["ingredient"] = ingredient;
-    json_message["amountWarning"]["amountWarningLimit"] = amountWarningLimit;
-    webinterface_->SendMessage(json_message.dump());
+void PumpControl::PumpDriverAmountWarning(int pump_index, int amountWarningLimit) {
+    string ingredient = pump_ingredients_bimap_.left.at(pump_index);
+    LOG(DEBUG)<< "PumpDriverAmountWarning: index:" << pump_index << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
+    webinterface_->AmountWarning(pump_index, ingredient, amountWarningLimit);
 }
 
 void PumpControl::SetAmountForPump(int pump_number, int amount){

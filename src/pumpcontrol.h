@@ -19,7 +19,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
         virtual ~PumpControl();
 
-        //WebInterfaceCallbackClient
+        //PumpControlInterface
         virtual PumpControlState GetPumpControlState() const;
         virtual void SetPumpControlState(PumpControlState state);
         virtual void SetAmountForPump(int pump_number, int amount);

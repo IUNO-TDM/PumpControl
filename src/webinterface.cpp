@@ -323,3 +323,48 @@ void WebInterface::SendMessage(std::string message) {
         server_.send(con, message, websocketpp::frame::opcode::value::text);
     }
 }
+
+void WebInterface::NewPumpControlState(PumpControlInterface::PumpControlState state){
+    LOG(DEBUG)<< "send update to websocketclients: " << PumpControlInterface::NameForPumpControlState(state);
+    json json_message = json::object();
+    json_message["mode"] = PumpControlInterface::NameForPumpControlState(state);
+    SendMessage(json_message.dump());
+}
+
+void WebInterface::ProgramEnded(string id) {
+    LOG(DEBUG)<< "ProgramEnded: " << id;
+    json json_message = json::object();
+    json_message["programEnded"]["orderName"] = id;
+    SendMessage(json_message.dump());
+}
+
+void WebInterface::ProgressUpdate(string id, int percent) {
+    LOG(DEBUG)<< "ProgressUpdate " << percent << " : " << id;
+    json json_message = json::object();
+    json_message["progressUpdate"]["orderName"] = id;
+    json_message["progressUpdate"]["progress"] = percent;
+    SendMessage(json_message.dump());
+}
+
+void WebInterface::AmountWarning(size_t pump_index, string ingredient, int warning_limit) {
+    size_t pump_number = pump_index +1;
+    LOG(DEBUG)<< "AmountWarning: nr:" << pump_number << " ingredient: " << ingredient
+            << " Amount warning level: " << warning_limit;
+    json json_message = json::object();
+    json_message["amountWarning"]["pumpNr"] = pump_number;
+    json_message["amountWarning"]["ingredient"] = ingredient;
+    json_message["amountWarning"]["amountWarningLimit"] = warning_limit;
+    SendMessage(json_message.dump());
+}
+
+void WebInterface::Error(string error_type, int error_number, string details) {
+    LOG(ERROR)<<"Error, type: " << error_type << "; number: " << error_number << "; details: '" << details << "'.";
+    json json_message = json::object();
+    json_message["error"]["type"] = error_type;
+    json_message["error"]["nr"] = error_number;
+    json_message["error"]["details"] = details;
+    SendMessage(json_message.dump());
+}
+
+
+
