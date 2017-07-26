@@ -1,6 +1,7 @@
 #include "pumpcontrol.h"
 #include "pumpdriversimulation.h"
 #include "pumpdriverfirmata.h"
+#include "pumpcontrolcallback.h"
 
 #include "easylogging++.h"
 
@@ -11,18 +12,41 @@
 using namespace std;
 using namespace nlohmann;
 
-PumpControl::PumpControl(string serial_port, bool simulation, int websocket_port,
+PumpControl::PumpControl(string serial_port, bool simulation,
         map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
-    Init(serial_port, simulation, websocket_port, pump_definitions);
+    simulation_ = simulation;
+    pump_definitions_ = pump_definitions;
+    serialport_ = serial_port;
+
+    for (auto i : kPumpIngredientsInit) {
+        pump_ingredients_bimap_.insert(boost::bimap<int, string>::value_type(i.first, i.second));
+    }
+
+    string config_string;
+    if (simulation_) {
+        pumpdriver_ = new PumpDriverSimulation();
+        LOG(INFO)<< "The simulation mode is on. Firmata not active!";
+        config_string = "simulation";
+
+    } else {
+        pumpdriver_ = new PumpDriverFirmata();
+        config_string = serialport_;
+    }
+
+    bool success = pumpdriver_->Init(config_string.c_str(), pump_definitions_, this);
+    if (success) {
+        timeprogramrunner_ = new TimeProgramRunner(this, pumpdriver_);
+        timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run, timeprogramrunner_);
+        SetPumpControlState(PUMP_STATE_IDLE);
+    } else {
+        SetPumpControlState(PUMP_STATE_ERROR);
+        LOG(ERROR)<< "Could not initialize the Pump Driver. You can now close the application.";
+    }
 }
 
 PumpControl::~PumpControl() {
     LOG(DEBUG)<< "PumpControl destructor";
-    if (webinterface_) {
-        webinterface_->Stop();
-        webinterface_->UnregisterCallbackClient(this);
-        delete webinterface_;
-    }
+
     if(timeprogramrunner_) {
         timeprogramrunner_->Shutdown();
         if(timeprogramrunner_thread_.joinable()) {
@@ -37,46 +61,23 @@ PumpControl::~PumpControl() {
     LOG(DEBUG) << "PumpControl destructor finished";
 }
 
-void PumpControl::Init(string serial_port, bool simulation, int websocket_port,
-        map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
-    simulation_ = simulation;
-    pump_definitions_ = pump_definitions;
-    serialport_ = serial_port;
-
-    for (auto i : kPumpIngredientsInit) {
-        pump_ingredients_bimap_.insert(boost::bimap<int, string>::value_type(i.first, i.second));
+void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
+    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    if( !callback_client_ ){
+        callback_client_ = client;
+        callback_client_->NewPumpControlState(pumpcontrol_state_);
+    }else{
+        throw logic_error("Tried to register a client where already one is registered");
     }
+}
 
-    webinterface_ = new WebInterface(websocket_port);
-    webinterface_->RegisterCallbackClient(this);
-    bool success = webinterface_->Start();
-
-    if (success) {
-        SetPumpControlState(PUMP_STATE_IDLE);
-        string config_string;
-        if (simulation_) {
-            pumpdriver_ = new PumpDriverSimulation();
-            LOG(INFO)<< "The simulation mode is on. Firmata not active!";
-            config_string = "simulation";
-
-        } else {
-            pumpdriver_ = new PumpDriverFirmata();
-            config_string = serialport_;
-        }
-
-        success = pumpdriver_->Init(config_string.c_str(), pump_definitions_, this);
-        if (success) {
-            timeprogramrunner_ = new TimeProgramRunner(this, pumpdriver_);
-            timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run, timeprogramrunner_);
-        } else {
-            SetPumpControlState(PUMP_STATE_ERROR);
-            LOG(ERROR)<< "Could not initialize the Pump Driver. You can now close the application.";
-        }
-
-    } else {
-        LOG(ERROR)<< "Could not inititalize the WebInterface. You can now close the application.";
+void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
+    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    if( callback_client_ == client ){
+        callback_client_ = NULL;
+    }else{
+        throw logic_error("Tried to unregister a client that isn't registered");
     }
-
 }
 
 void PumpControl::StartProgram(const char* recipe_json_string) {
@@ -205,7 +206,10 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
     } catch(const exception& ex) {
         LOG(ERROR)<<"Failed to create timeprogram: "<<ex.what();
         time = -1;
-        webinterface_->Error("TimeProgramParseError", 1, ex.what());
+        std::lock_guard<std::mutex> lock(callback_client_mutex_);
+        if(callback_client_){
+            callback_client_->Error("TimeProgramParseError", 1, ex.what());
+        }
     }
 
     return time;
@@ -249,45 +253,44 @@ void PumpControl::SeparateTooFastIngredients(vector<int> *separated_pumps, map<i
 }
 
 void PumpControl::SetPumpControlState(PumpControlState state) {
-    bool success = false;
     LOG(DEBUG)<< "SetPumpControlState: " << PumpControlInterface::NameForPumpControlState(state);
-    switch (state) {
-        case PUMP_STATE_ACTIVE:
-            if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
+    if (pumpcontrol_state_ != state) {
+        switch (state) {
+            case PUMP_STATE_ACTIVE:
+                if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
+                    pumpcontrol_state_ = state;
+                }
+                break;
+            case PUMP_STATE_SERVICE:
+                if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
+                    pumpcontrol_state_ = state;
+                }
+                break;
+            case PUMP_STATE_IDLE:
+            case PUMP_STATE_ERROR:
                 pumpcontrol_state_ = state;
-                success = true;
-            }
-            break;
-        case PUMP_STATE_SERVICE:
-            if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
-                pumpcontrol_state_ = state;
-                success = true;
-            }
-            break;
-        case PUMP_STATE_UNINITIALIZED:
-            break;
-        default:
-            pumpcontrol_state_ = state;
-            success = true;
-            break;
+                break;
+            case PUMP_STATE_UNINITIALIZED:
+                break;
+        }
     }
 
-    if (success) {
-        webinterface_->NewPumpControlState(pumpcontrol_state_);
-    }
-
-    if(!success){
+    if (pumpcontrol_state_ == state) {
+        std::lock_guard<std::mutex> lock(callback_client_mutex_);
+        if(callback_client_){
+            callback_client_->NewPumpControlState(pumpcontrol_state_);
+        }
+    } else {
         throw logic_error("State switch not allowed.");
     }
 }
 
-PumpControlInterface::PumpControlState PumpControl::GetPumpControlState() const {
-    return pumpcontrol_state_;
-}
-
 void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
     LOG(DEBUG)<< "TimeProgramRunnerProgressUpdate " << percent << " : " << id;
-    webinterface_->ProgressUpdate(id, percent);
+    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    if(callback_client_){
+        callback_client_->ProgressUpdate(id, percent);
+    }
 }
 
 void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State state) {
@@ -308,14 +311,22 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
 
 void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     LOG(DEBUG)<< "TimeProgramRunnerProgramEnded" << id;
-    webinterface_->ProgramEnded(id);
+    {
+        std::lock_guard<std::mutex> lock(callback_client_mutex_);
+        if(callback_client_){
+            callback_client_->ProgramEnded(id);
+        }
+    }
     timeprogram_.clear();
 }
 
 void PumpControl::PumpDriverAmountWarning(int pump_index, int amountWarningLimit) {
     string ingredient = pump_ingredients_bimap_.left.at(pump_index);
     LOG(DEBUG)<< "PumpDriverAmountWarning: index:" << pump_index << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
-    webinterface_->AmountWarning(pump_index, ingredient, amountWarningLimit);
+    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    if(callback_client_){
+        callback_client_->AmountWarning(pump_index, ingredient, amountWarningLimit);
+    }
 }
 
 void PumpControl::SetAmountForPump(int pump_number, int amount){
@@ -357,12 +368,30 @@ PumpDriverInterface::PumpDefinition PumpControl::GetPumpDefinition(size_t pump_i
 }
 
 float PumpControl::SwitchPump(size_t pump_index, bool switch_on) {
+    if(pumpcontrol_state_ != PUMP_STATE_SERVICE){
+        throw logic_error("not in service state");
+    }
     const PumpDriverInterface::PumpDefinition& pump_definition = GetPumpDefinition(pump_index);
     float new_flow = switch_on ? pump_definition.max_flow : 0;
     pumpdriver_->SetPump(pump_index, new_flow);
     return new_flow;
 }
 
+void PumpControl::EnterServiceMode(){
+    if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
+        SetPumpControlState(PUMP_STATE_SERVICE);
+    } else {
+        throw logic_error("Can't enter service while not in idle.");
+    }
+}
+
+void PumpControl::LeaveServiceMode(){
+    if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
+        SetPumpControlState(PUMP_STATE_IDLE);
+    } else {
+        throw logic_error("Can't leave service while not in service.");
+    }
+}
 
 
 

@@ -1,27 +1,29 @@
 #ifndef PUMPCONTROL_H
 #define PUMPCONTROL_H
 
-#include "json.hpp"
-#include "webinterface.h"
+#include "pumpcontrolinterface.h"
 #include "timeprogramrunner.h"
+
+#include "json.hpp"
 
 #include <unistd.h>
 #include <map>
 #include <vector>
 #include <thread>
+#include <mutex>
 #include <boost/bimap.hpp>
 
 class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback, public PumpDriverCallbackClient {
 
     public:
-        PumpControl(std::string serial_port, bool simulation, int websocket_port,
+        PumpControl(std::string serial_port, bool simulation,
                 std::map<int, PumpDriverInterface::PumpDefinition> pump_configurations);
 
         virtual ~PumpControl();
 
         //PumpControlInterface
-        virtual PumpControlState GetPumpControlState() const;
-        virtual void SetPumpControlState(PumpControlState state);
+        virtual void RegisterCallbackClient(PumpControlCallback* client);
+        virtual void UnregisterCallbackClient(PumpControlCallback* client);
         virtual void SetAmountForPump(int pump_number, int amount);
         virtual std::string GetIngredientForPump(int pump_number) const;
         virtual void SetIngredientForPump(int pump_number, const std::string& ingredient);
@@ -30,6 +32,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_index) const;
         virtual float SwitchPump(size_t pump_index, bool switch_on);
         virtual void StartProgram(const char* receipt_json_string);
+        virtual void EnterServiceMode();
+        virtual void LeaveServiceMode();
 
         //TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent);
@@ -37,12 +41,16 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgramEnded(std::string id);
         virtual void PumpDriverAmountWarning(int pump_number, int amount_left);
 
+        virtual void SetPumpControlState(PumpControlState state);
+
     private:
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
         PumpDriverInterface *pumpdriver_ = NULL;
         std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions_;
 
-        WebInterface *webinterface_ = NULL;
+        PumpControlCallback* callback_client_ = NULL;
+        std::mutex callback_client_mutex_;
+
         TimeProgramRunner *timeprogramrunner_ = NULL;
 
         TimeProgramRunner::TimeProgram timeprogram_;
@@ -70,8 +78,6 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         void CreateTimer(int interval, int maximumTime);
         void TimerFired(int time);
         void TimerEnded();
-        void Init(std::string serial_port, bool simulation, int websocket_port,
-                std::map<int, PumpDriverInterface::PumpDefinition> pump_configurations);
         const char *NameForPumpControlState(PumpControlState state);
         int GetMaxElement(std::map<int, float> list);
         int GetMinElement(std::map<int, float> list);

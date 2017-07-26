@@ -13,7 +13,7 @@ class WebInterface : public PumpControlCallback{
 
     public:
 
-        WebInterface(int port);
+        WebInterface(int port, PumpControlInterface* pump_control);
         virtual ~WebInterface();
 
         //PumpControlCallback
@@ -23,8 +23,6 @@ class WebInterface : public PumpControlCallback{
         virtual void AmountWarning(size_t pump_index, std::string ingredient, int warning_limit);
         virtual void Error(std::string error_type, int error_number, std::string details);
 
-        void RegisterCallbackClient(PumpControlInterface *);
-        void UnregisterCallbackClient(PumpControlInterface *);
         bool Start();
         void Stop();
 
@@ -46,14 +44,15 @@ class WebInterface : public PumpControlCallback{
 
         typedef websocketpp::server<websocketpp::config::asio> WebSocketServer;
         WebSocketServer server_;
+        std::thread server_thread_;
+        int port_;
 
         typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > ConList;
         ConList connections_;
-
-        PumpControlInterface* callback_client_ = NULL;
-        int port_;
-        std::thread server_thread_;
         websocketpp::lib::mutex connection_mutex_;
+
+        PumpControlInterface* pump_control_ = NULL;
+        PumpControlInterface::PumpControlState pump_control_state_ = PumpControlInterface::PUMP_STATE_UNINITIALIZED;
 };
 
 #endif

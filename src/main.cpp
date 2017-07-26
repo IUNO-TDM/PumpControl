@@ -1,4 +1,6 @@
 #include "pumpcontrol.h"
+#include "webinterface.h"
+
 #include "easylogging++.h"
 
 #include <boost/program_options.hpp>
@@ -82,11 +84,12 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    PumpControl *pump_control = new PumpControl(serial_port.c_str(), simulation, websocket_port, pump_definitions);
+    {
+        PumpControl pump_control(serial_port.c_str(), simulation, pump_definitions);
+        WebInterface web_interface(websocket_port, &pump_control);
 
-    cin.get();
-
-    delete pump_control;
+        cin.get();
+    }
 
     LOG(INFO)<< "Application closes now";
     el::Loggers::flushAll();

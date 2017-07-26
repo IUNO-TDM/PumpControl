@@ -5,6 +5,8 @@
 #include <string>
 #include <unistd.h>
 
+class PumpControlCallback;
+
 class PumpControlInterface {
     public:
         enum PumpControlState {
@@ -34,8 +36,8 @@ class PumpControlInterface {
         virtual ~PumpControlInterface() {
         }
 
-        virtual PumpControlState GetPumpControlState() const = 0;
-        virtual void SetPumpControlState(PumpControlState state) = 0;
+        virtual void RegisterCallbackClient(PumpControlCallback* client) = 0;
+        virtual void UnregisterCallbackClient(PumpControlCallback* client) = 0;
         virtual void SetAmountForPump(int pump_number, int amount) = 0;
         virtual std::string GetIngredientForPump(int pump_number) const = 0;
         virtual void SetIngredientForPump(int pump_number, const std::string& ingredient) = 0;
@@ -44,6 +46,8 @@ class PumpControlInterface {
         virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_index) const = 0;
         virtual float SwitchPump(size_t pump_index, bool switch_on) = 0;
         virtual void StartProgram(const char* receipt_json_string) = 0;
+        virtual void EnterServiceMode() = 0;
+        virtual void LeaveServiceMode() = 0;
 };
 
 #endif
