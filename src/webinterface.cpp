@@ -79,10 +79,10 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
     response.response_message = "Ey yo - nix";
 
     {
-        string combined = method + "|" + path + "|" + body;
+        string combined = method + ":" + path + ":" + body;
         boost::smatch what;
 
-        if (boost::regex_search(path, what, boost::regex("^PUT|\\/ingredients\\/([0-9]{1,2})\\/amount\\/?|([0-9]+)$"))) {
+        if (boost::regex_search(path, what, boost::regex("^PUT:\\/ingredients\\/([0-9]{1,2})\\/amount\\/?:([0-9]+)$"))) {
             HandleSetAmountForPump(what[1].str(), what[2].str());
         }
     }
