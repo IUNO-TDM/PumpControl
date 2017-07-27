@@ -29,8 +29,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void SetIngredientForPump(int pump_number, const std::string& ingredient);
         virtual void DeleteIngredientForPump(int pump_number);
         virtual size_t GetNumberOfPumps() const;
-        virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_index) const;
-        virtual float SwitchPump(size_t pump_index, bool switch_on);
+        virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_number) const;
+        virtual float SwitchPump(size_t pump_number, bool switch_on);
         virtual void StartProgram(const char* receipt_json_string);
         virtual void EnterServiceMode();
         virtual void LeaveServiceMode();

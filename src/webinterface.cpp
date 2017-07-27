@@ -148,9 +148,9 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
             if (method == "GET") {
                 json responseJson = json::object();
                 size_t pump_count = pump_control_->GetNumberOfPumps();
-                for(size_t i = 0; i<pump_count; i++) {
+                for(size_t i = 1; i<=pump_count; i++) {
                     stringstream ss;
-                    ss << (i+1);
+                    ss << i;
                     json pump = json::object();
                     PumpDriverInterface::PumpDefinition pump_definition = pump_control_->GetPumpDefinition(i);
                     pump["minFlow"] = pump_definition.min_flow;
@@ -307,8 +307,7 @@ void WebInterface::ProgressUpdate(string id, int percent) {
     SendMessage(json_message.dump());
 }
 
-void WebInterface::AmountWarning(size_t pump_index, string ingredient, int warning_limit) {
-    size_t pump_number = pump_index +1;
+void WebInterface::AmountWarning(size_t pump_number, string ingredient, int warning_limit) {
     LOG(DEBUG)<< "AmountWarning: nr:" << pump_number << " ingredient: " << ingredient
             << " Amount warning level: " << warning_limit;
     json json_message = json::object();

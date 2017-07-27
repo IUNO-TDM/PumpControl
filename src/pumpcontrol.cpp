@@ -318,12 +318,12 @@ void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     timeprogram_.clear();
 }
 
-void PumpControl::PumpDriverAmountWarning(int pump_index, int amountWarningLimit) {
-    string ingredient = pump_ingredients_bimap_.left.at(pump_index);
-    LOG(DEBUG)<< "PumpDriverAmountWarning: index:" << pump_index << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
+void PumpControl::PumpDriverAmountWarning(int pump_number, int amountWarningLimit) {
+    string ingredient = pump_ingredients_bimap_.left.at(pump_number);
+    LOG(DEBUG)<< "PumpDriverAmountWarning: number:" << pump_number << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
     std::lock_guard<std::mutex> lock(callback_client_mutex_);
     if(callback_client_){
-        callback_client_->AmountWarning(pump_index, ingredient, amountWarningLimit);
+        callback_client_->AmountWarning(pump_number, ingredient, amountWarningLimit);
     }
 }
 
@@ -360,18 +360,18 @@ size_t PumpControl::GetNumberOfPumps() const {
     return pump_definitions_.size();
 }
 
-PumpDriverInterface::PumpDefinition PumpControl::GetPumpDefinition(size_t pump_index) const {
-    const PumpDriverInterface::PumpDefinition& pump_definition = pump_definitions_.at(pump_index);
+PumpDriverInterface::PumpDefinition PumpControl::GetPumpDefinition(size_t pump_number) const {
+    const PumpDriverInterface::PumpDefinition& pump_definition = pump_definitions_.at(pump_number);
     return pump_definition;
 }
 
-float PumpControl::SwitchPump(size_t pump_index, bool switch_on) {
+float PumpControl::SwitchPump(size_t pump_number, bool switch_on) {
     if(pumpcontrol_state_ != PUMP_STATE_SERVICE){
         throw logic_error("not in service state");
     }
-    const PumpDriverInterface::PumpDefinition& pump_definition = GetPumpDefinition(pump_index);
+    const PumpDriverInterface::PumpDefinition& pump_definition = GetPumpDefinition(pump_number);
     float new_flow = switch_on ? pump_definition.max_flow : 0;
-    pumpdriver_->SetPump(pump_index, new_flow);
+    pumpdriver_->SetPump(pump_number, new_flow);
     return new_flow;
 }
 

@@ -20,7 +20,7 @@ class WebInterface : public PumpControlCallback{
         virtual void NewPumpControlState(PumpControlInterface::PumpControlState state);
         virtual void ProgramEnded(std::string id);
         virtual void ProgressUpdate(std::string id, int percent);
-        virtual void AmountWarning(size_t pump_index, std::string ingredient, int warning_limit);
+        virtual void AmountWarning(size_t pump_number, std::string ingredient, int warning_limit);
         virtual void Error(std::string error_type, int error_number, std::string details);
 
         bool Start();
