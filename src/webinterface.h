@@ -5,9 +5,9 @@
 #include "websocketpp/config/asio_no_tls.hpp"
 #include "websocketpp/server.hpp"
 
-#include <map>
+#include <thread>
+#include <mutex>
 #include <set>
-#include <unistd.h>
 
 class WebInterface : public PumpControlCallback{
 
@@ -18,13 +18,10 @@ class WebInterface : public PumpControlCallback{
 
         //PumpControlCallback
         virtual void NewPumpControlState(PumpControlInterface::PumpControlState state);
-        virtual void ProgramEnded(std::string id);
         virtual void ProgressUpdate(std::string id, int percent);
+        virtual void ProgramEnded(std::string id);
         virtual void AmountWarning(size_t pump_number, std::string ingredient, int warning_limit);
         virtual void Error(std::string error_type, int error_number, std::string details);
-
-        bool Start();
-        void Stop();
 
     private:
 
@@ -48,26 +45,24 @@ class WebInterface : public PumpControlCallback{
         void HandleHttpMessage(const std::string& method, const std::string& path, const std::string& body,
                 HttpResponse& response);
 
-        void HandleSetAmountForPump(const std::string& pump_number_string, const std::string& amount_string, HttpResponse& response);
-        void HandleSetIngredientForPump(const std::string& pump_number_string, const std::string& ingredient, HttpResponse& response);
-        void HandleGetIngredientForPump(const std::string& pump_number_string, HttpResponse& response);
-        void HandleDeleteIngredientForPump(const std::string& pump_number_string, HttpResponse& response);
+        void HandleStartProgram(const std::string& program_string, HttpResponse& response);
         void HandleGetPumps(HttpResponse& response);
-        void HandleSwitchPump(const std::string& pump_number_string, const std::string& on_off, HttpResponse& response);
+        void HandleSetAmountForPump(const std::string& pump_number_string, const std::string& amount_string, HttpResponse& response);
+        void HandleGetIngredientForPump(const std::string& pump_number_string, HttpResponse& response);
+        void HandleSetIngredientForPump(const std::string& pump_number_string, const std::string& ingredient, HttpResponse& response);
+        void HandleDeleteIngredientForPump(const std::string& pump_number_string, HttpResponse& response);
         void HandleEnterServiceMode(HttpResponse& response);
         void HandleLeaveServiceMode(HttpResponse& response);
-        void HandleStartProgram(const std::string& program_string, HttpResponse& response);
+        void HandleSwitchPump(const std::string& pump_number_string, const std::string& on_off, HttpResponse& response);
 
-        void SendMessage(std::string message);
+        void SendMessage(const std::string& message);
 
-        typedef websocketpp::server<websocketpp::config::asio> WebSocketServer;
-        WebSocketServer server_;
+        websocketpp::server<websocketpp::config::asio> server_;
         std::thread server_thread_;
         int port_;
 
-        typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > ConList;
-        ConList connections_;
-        websocketpp::lib::mutex connection_mutex_;
+        std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > connections_;
+        std::mutex connection_mutex_;
 
         PumpControlInterface* pump_control_ = NULL;
         PumpControlInterface::PumpControlState pump_control_state_ = PumpControlInterface::PUMP_STATE_UNINITIALIZED;
