@@ -37,8 +37,10 @@ class WebInterface : public PumpControlCallback{
         void OnClose(websocketpp::connection_hdl hdl);
         void OnHttp(websocketpp::connection_hdl hdl);
 
-        bool WebInterfaceHttpMessage(std::string method, std::string path, std::string body,
-                HttpResponse *response);
+        void HandleHttpMessage(const std::string& method, const std::string& path, const std::string& body,
+                HttpResponse& response);
+
+        void HandleSetAmountForPump(const std::string& pump_number_string, const std::string& amount_string);
 
         void SendMessage(std::string message);
 

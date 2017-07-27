@@ -62,16 +62,32 @@ void WebInterface::OnHttp(connection_hdl hdl) {
     std::string met = con->get_request().get_method();
 
     HttpResponse response;
-    WebInterfaceHttpMessage(met,uri,body, &response);
+    HandleHttpMessage(met,uri,body, response);
 
     con->set_body(response.response_message);
     con->set_status((websocketpp::http::status_code::value)response.response_code);
 }
 
-bool WebInterface::WebInterfaceHttpMessage(string method, string path, string body, HttpResponse *response) {
+void WebInterface::HandleSetAmountForPump(const std::string& pump_number_string, const std::string& amount_string){
+    LOG(INFO)<< "Setting amount for pump number " << pump_number_string << " to " << amount_string << "ml.";
+}
+
+
+void WebInterface::HandleHttpMessage(const string& method, const string& path, const string& body, HttpResponse& response) {
     LOG(DEBUG) << "HTTP Message: Method: " << method << "; Path: " << path << "; Body: '" << body << "'.";
-    response->response_code = 400;
-    response->response_message = "Ey yo - nix";
+    response.response_code = 400;
+    response.response_message = "Ey yo - nix";
+
+    {
+        string combined = method + "|" + path + "|" + body;
+        boost::smatch what;
+
+        if (boost::regex_search(path, what, boost::regex("^PUT|\\/ingredients\\/([0-9]{1,2})\\/amount\\/?|([0-9]+)$"))) {
+            HandleSetAmountForPump(what[1].str(), what[2].str());
+        }
+    }
+
+
     try {
         if (boost::starts_with(path, "/ingredients/")) {
             boost::regex expr { "^\\/ingredients\\/([0-9]{1,2}(\\/amount)?)$" };
@@ -85,62 +101,62 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
                                 int amount = atoi(body.c_str());
                                 pump_control_->SetAmountForPump(nr, amount);
                                 LOG(DEBUG)<< amount << "ml has been set for pump " << nr;
-                                response->response_code = 200;
-                                response->response_message = "Successfully stored amount for ingredient for pump";
+                                response.response_code = 200;
+                                response.response_message = "Successfully stored amount for ingredient for pump";
                             } catch (out_of_range&) {
                                 LOG(DEBUG)<< "Amount for pump nr " << nr << "can't be set, because it is not configured";
-                                response->response_code = 400;
-                                response->response_message = "This pump is not configured";
+                                response.response_code = 400;
+                                response.response_message = "This pump is not configured";
                             } catch (exception& e) {
                                 // TODO guess atoi simply returns 0 if body is invalid. must be handled differently.
                                 LOG(ERROR)<< e.what();
-                                response->response_code = 400;
-                                response->response_message = "The body is invalid";
+                                response.response_code = 400;
+                                response.response_message = "The body is invalid";
                             }
                         } else {
-                            response->response_code = 400;
-                            response->response_message = "Body is empty";
+                            response.response_code = 400;
+                            response.response_message = "Body is empty";
                         }
                     } else {
-                        response->response_code = 400;
-                        response->response_message = "Wrong method for this URL";
+                        response.response_code = 400;
+                        response.response_message = "Wrong method for this URL";
                     }
                 } else {
                     if (method == "GET") {
                         try {
-                            response->response_code = 200;
-                            response->response_message = pump_control_->GetIngredientForPump(nr);
+                            response.response_code = 200;
+                            response.response_message = pump_control_->GetIngredientForPump(nr);
                         } catch (out_of_range&) {
-                            response->response_code = 404;
-                            response->response_message = "No ingredient for this pump number available!";
+                            response.response_code = 404;
+                            response.response_message = "No ingredient for this pump number available!";
                         }
                     } else if (method == "PUT") {
                         if(body.length()> 0) {
                             try {
                                 pump_control_->SetIngredientForPump(nr, body);
                                 LOG(DEBUG) << "Pump number " << nr << "is now bound to "<< body;
-                                response->response_code = 200;
-                                response->response_message = "Successfully stored ingredient for pump";
+                                response.response_code = 200;
+                                response.response_message = "Successfully stored ingredient for pump";
                             } catch (out_of_range&) {
-                                response->response_code = 404;
-                                response->response_message = "Can't set ingredient for this pump number!";
+                                response.response_code = 404;
+                                response.response_message = "Can't set ingredient for this pump number!";
                             }
                         } else {
-                            response->response_code = 404;
-                            response->response_message = "Can't set ingredient to an empty string!";
+                            response.response_code = 404;
+                            response.response_message = "Can't set ingredient to an empty string!";
                         }
                     } else if (method == "DELETE") {
                         try {
                             pump_control_->DeleteIngredientForPump(nr);
-                            response->response_code = 200;
-                            response->response_message = "Successfully deleted ingredient for pump";
+                            response.response_code = 200;
+                            response.response_message = "Successfully deleted ingredient for pump";
                         } catch (out_of_range&) {
-                            response->response_code = 404;
-                            response->response_message = "No ingredient for this pump number available!";
+                            response.response_code = 404;
+                            response.response_message = "No ingredient for this pump number available!";
                         }
                      } else {
-                        response->response_code = 400;
-                        response->response_message = "Wrong method for this URL";
+                        response.response_code = 400;
+                        response.response_message = "Wrong method for this URL";
                     }
                 }
             }
@@ -158,8 +174,8 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
                     pump["flowPrecision"] = pump_definition.flow_precision;
                     responseJson[ss.str()]= pump;
                 }
-                response->response_code = 200;
-                response->response_message = responseJson.dump();
+                response.response_code = 200;
+                response.response_message = responseJson.dump();
             }
         } else if (boost::starts_with(path,"/service")) {
             if (boost::starts_with(path,"/service/pumps/")) {
@@ -171,51 +187,51 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
                     try {
                         float new_flow = pump_control_->SwitchPump(nr-1, (body=="true"));
                         LOG(DEBUG)<< "Pump " << nr << " should be switched to " << body;
-                        response->response_code = 200;
-                        response->response_message = "SUCCESS";
+                        response.response_code = 200;
+                        response.response_message = "SUCCESS";
                         json json_message = json::object();
                         json_message["service"]["pump"] = nr;
                         json_message["service"]["flow"] = new_flow;
                         SendMessage(json_message.dump());
                     } catch(out_of_range&) {
-                        response->response_code = 400;
-                        response->response_message = "Requested Pump not available";
+                        response.response_code = 400;
+                        response.response_message = "Requested Pump not available";
                     } catch(logic_error&) {
-                        response->response_code = 400;
-                        response->response_message = "PumpControl not in Service mode";
+                        response.response_code = 400;
+                        response.response_message = "PumpControl not in Service mode";
                     }
                 } else {
-                    response->response_code = 400;
-                    response->response_message = "wrong format to control pumps in service mode";
+                    response.response_code = 400;
+                    response.response_message = "wrong format to control pumps in service mode";
                 }
             } else if (path == "/service" ||path == "/service/" ) {
                 if (method == "PUT") {
                     if (body == "true") {
                         try{
                             pump_control_->EnterServiceMode();
-                            response->response_code = 200;
-                            response->response_message = "Successfully changed to Service state";
+                            response.response_code = 200;
+                            response.response_message = "Successfully changed to Service state";
                         } catch(logic_error&) {
-                            response->response_code = 500;
-                            response->response_message = "Could not set Service mode";
+                            response.response_code = 500;
+                            response.response_message = "Could not set Service mode";
                         }
                     } else if (body == "false") {
                         try {
                             pump_control_->LeaveServiceMode();
-                            response->response_code = 200;
-                            response->response_message = "Successfully changed to Idle state";
+                            response.response_code = 200;
+                            response.response_message = "Successfully changed to Idle state";
                         } catch(logic_error&) {
-                            response->response_code = 500;
-                            response->response_message = "Could not set idle mode";
+                            response.response_code = 500;
+                            response.response_message = "Could not set idle mode";
                         }
                     } else {
-                        response->response_code = 400;
-                        response->response_message = "incorrect parameter";
+                        response.response_code = 400;
+                        response.response_message = "incorrect parameter";
                     }
 
                 } else {
-                    response->response_code = 400;
-                    response->response_message = "servicemode can only be set or unset. "
+                    response.response_code = 400;
+                    response.response_message = "servicemode can only be set or unset. "
                                 "No other function available. watch websocket!";
                 }
             }
@@ -223,25 +239,23 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
             if(method == "PUT") {
                 try {
                     pump_control_->StartProgram(body.c_str());
-                    response->response_code = 200;
-                    response->response_message = "SUCCESS";
+                    response.response_code = 200;
+                    response.response_message = "SUCCESS";
                 } catch(logic_error&) {
-                    response->response_code = 500;
-                    response->response_message = "Wrong state for starting a program";
+                    response.response_code = 500;
+                    response.response_message = "Wrong state for starting a program";
                 }
             } else {
-                response->response_code = 400;
-                response->response_message = "wrong method for program upload";
+                response.response_code = 400;
+                response.response_message = "wrong method for program upload";
             }
         } else {
-            response->response_code = 400;
-            response->response_message = "unrecognized path";
+            response.response_code = 400;
+            response.response_message = "unrecognized path";
         }
     } catch (boost::bad_lexical_cast&) {
         // bad parameter
     }
-
-    return true;
 }
 
 bool WebInterface::Start() {
