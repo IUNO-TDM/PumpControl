@@ -43,7 +43,7 @@ PumpControl::PumpControl(string serial_port, bool simulation,
 }
 
 PumpControl::~PumpControl() {
-    LOG(DEBUG)<< "PumpControl destructor";
+    LOG(DEBUG) << "PumpControl destructor";
 
     if(timeprogramrunner_) {
         timeprogramrunner_->Shutdown();

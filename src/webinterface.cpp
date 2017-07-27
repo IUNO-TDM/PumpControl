@@ -7,6 +7,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
+#include <sstream>
 
 using websocketpp::connection_hdl;
 using websocketpp::lib::placeholders::_1;
@@ -68,12 +69,12 @@ void WebInterface::OnHttp(connection_hdl hdl) {
 }
 
 bool WebInterface::WebInterfaceHttpMessage(string method, string path, string body, HttpResponse *response) {
-    printf("HTTP Message: Method: %s,Path:%s, Body:%s\n", method.c_str(), path.c_str(), body.c_str());
+    LOG(DEBUG) << "HTTP Message: Method: " << method << "; Path: " << path << "; Body: '" << body << "'.";
     response->response_code = 400;
     response->response_message = "Ey yo - nix";
     try {
         if (boost::starts_with(path, "/ingredients/")) {
-            boost::regex expr { "\\/ingredients\\/([0-9]{1,2}(\\/amount)?)" };
+            boost::regex expr { "^\\/ingredients\\/([0-9]{1,2}(\\/amount)?)$" };
             boost::smatch what;
             if (boost::regex_search(path, what, expr)) {
                 int nr = stoi(what[1].str());
@@ -148,14 +149,14 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
                 json responseJson = json::object();
                 size_t pump_count = pump_control_->GetNumberOfPumps();
                 for(size_t i = 0; i<pump_count; i++) {
-                    char key[3];
-                    sprintf(key,"%lu",i+1);
+                    stringstream ss;
+                    ss << (i+1);
                     json pump = json::object();
                     PumpDriverInterface::PumpDefinition pump_definition = pump_control_->GetPumpDefinition(i);
                     pump["minFlow"] = pump_definition.min_flow;
                     pump["maxFlow"] = pump_definition.max_flow;
                     pump["flowPrecision"] = pump_definition.flow_precision;
-                    responseJson[key]= pump;
+                    responseJson[ss.str()]= pump;
                 }
                 response->response_code = 200;
                 response->response_message = responseJson.dump();
@@ -169,7 +170,7 @@ bool WebInterface::WebInterfaceHttpMessage(string method, string path, string bo
                     int nr = stoi(what[1].str());
                     try {
                         float new_flow = pump_control_->SwitchPump(nr-1, (body=="true"));
-                        printf("Pump %d should be switched to %s\n",nr,body.c_str() );
+                        LOG(DEBUG)<< "Pump " << nr << " should be switched to " << body;
                         response->response_code = 200;
                         response->response_message = "SUCCESS";
                         json json_message = json::object();
