@@ -78,7 +78,7 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
     }
 }
 
-void PumpControl::StartProgram(const char* recipe_json_string) {
+void PumpControl::StartProgram(const string& recipe_json_string) {
     SetPumpControlState(PUMP_STATE_ACTIVE);
     json j = json::parse(recipe_json_string);
     int max_time = CreateTimeProgram(j["recipe"], timeprogram_);

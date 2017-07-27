@@ -31,6 +31,14 @@ class WebInterface : public PumpControlCallback{
         struct HttpResponse {
                 int response_code;
                 std::string response_message;
+                void Set(int code, const char* msg){
+                    response_code=code;
+                    response_message = msg;
+                }
+                void Set(int code, const std::string& msg){
+                    response_code=code;
+                    response_message = msg;
+                }
         };
 
         void OnOpen(websocketpp::connection_hdl hdl);
@@ -40,7 +48,15 @@ class WebInterface : public PumpControlCallback{
         void HandleHttpMessage(const std::string& method, const std::string& path, const std::string& body,
                 HttpResponse& response);
 
-        void HandleSetAmountForPump(const std::string& pump_number_string, const std::string& amount_string);
+        void HandleSetAmountForPump(const std::string& pump_number_string, const std::string& amount_string, HttpResponse& response);
+        void HandleSetIngredientForPump(const std::string& pump_number_string, const std::string& ingredient, HttpResponse& response);
+        void HandleGetIngredientForPump(const std::string& pump_number_string, HttpResponse& response);
+        void HandleDeleteIngredientForPump(const std::string& pump_number_string, HttpResponse& response);
+        void HandleGetPumps(HttpResponse& response);
+        void HandleSwitchPump(const std::string& pump_number_string, const std::string& on_off, HttpResponse& response);
+        void HandleEnterServiceMode(HttpResponse& response);
+        void HandleLeaveServiceMode(HttpResponse& response);
+        void HandleStartProgram(const std::string& program_string, HttpResponse& response);
 
         void SendMessage(std::string message);
 

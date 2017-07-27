@@ -45,7 +45,7 @@ class PumpControlInterface {
         virtual size_t GetNumberOfPumps() const = 0;
         virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_number) const = 0;
         virtual float SwitchPump(size_t pump_number, bool switch_on) = 0;
-        virtual void StartProgram(const char* receipt_json_string) = 0;
+        virtual void StartProgram(const std::string& receipt_json_string) = 0;
         virtual void EnterServiceMode() = 0;
         virtual void LeaveServiceMode() = 0;
 };
