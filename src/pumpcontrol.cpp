@@ -5,9 +5,7 @@
 
 #include "easylogging++.h"
 
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/regex.hpp>
+#include <cfloat>
 
 using namespace std;
 using namespace nlohmann;
