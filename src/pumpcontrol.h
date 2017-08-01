@@ -74,11 +74,6 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
         int CreateTimeProgram(nlohmann::json j, TimeProgramRunner::TimeProgram &timeprogram);
 
-        void TimerWorker(int interval, int maximumTime);
-        void CreateTimer(int interval, int maximumTime);
-        void TimerFired(int time);
-        void TimerEnded();
-        const char *NameForPumpControlState(PumpControlState state);
         int GetMaxElement(std::map<int, float> list);
         int GetMinElement(std::map<int, float> list);
         void SeparateTooFastIngredients(std::vector<int> *separated_pumps, std::map<int, float> min_list,
