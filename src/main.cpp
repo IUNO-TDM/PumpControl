@@ -1,5 +1,7 @@
 #include "pumpcontrol.h"
 #include "webinterface.h"
+#include "pumpdriversimulation.h"
+#include "pumpdriverfirmata.h"
 
 #include "easylogging++.h"
 
@@ -85,10 +87,26 @@ int main(int argc, char* argv[]) {
     }
 
     {
-        PumpControl pump_control(serial_port.c_str(), simulation, pump_definitions);
-        WebInterface web_interface(websocket_port, &pump_control);
+        string config_string;
+        PumpDriverInterface* pump_driver = NULL;
+        if (simulation) {
+            pump_driver = new PumpDriverSimulation();
+            LOG(INFO)<< "The simulation mode is on. Firmata not active!";
+            config_string = "simulation";
 
-        cin.get();
+        } else {
+            pump_driver = new PumpDriverFirmata();
+            config_string = serial_port;
+        }
+        bool success = pump_driver->Init(config_string.c_str(), pump_definitions);
+        if(success) {
+            PumpControl pump_control(pump_driver, pump_definitions);
+            WebInterface web_interface(websocket_port, &pump_control);
+
+            cin.get();
+        }
+
+        delete pump_driver;
     }
 
     LOG(INFO)<< "Application closes now";

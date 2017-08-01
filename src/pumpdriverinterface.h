@@ -1,8 +1,6 @@
 #ifndef PUMPDRIVERINTERFACE_H
 #define PUMPDRIVERINTERFACE_H
 
-#include "pumpdrivercallbackclient.h"
-
 #include <map>
 
 class PumpDriverInterface {
@@ -20,16 +18,13 @@ class PumpDriverInterface {
         virtual ~PumpDriverInterface() {
         }
 
-        virtual bool Init(const char* config_text_ptr, std::map<int, PumpDefinition> pump_definitions,
-                PumpDriverCallbackClient* callbackClient) = 0;
+        virtual bool Init(const char* config_text_ptr, std::map<int, PumpDefinition> pump_definitions) = 0;
 
         virtual void DeInit() = 0;
 
         virtual int GetPumpCount() = 0;
 
-        virtual void SetPump(int pump_number, float flow) = 0;
-
-        virtual void SetAmountForPump(int pump_number, int amount) = 0;
+        virtual float SetFlow(int pump_number, float flow) = 0;
 };
 
 #endif

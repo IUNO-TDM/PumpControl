@@ -1,6 +1,4 @@
 #include "pumpcontrol.h"
-#include "pumpdriversimulation.h"
-#include "pumpdriverfirmata.h"
 #include "pumpcontrolcallback.h"
 
 #include "easylogging++.h"
@@ -10,47 +8,31 @@
 using namespace std;
 using namespace nlohmann;
 
-PumpControl::PumpControl(string serial_port, bool simulation,
-        map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
-    simulation_ = simulation;
-    pump_definitions_ = pump_definitions;
-    serialport_ = serial_port;
+PumpControl::PumpControl(PumpDriverInterface* pump_driver,
+        map<int, PumpDriverInterface::PumpDefinition> pump_definitions) :
+    pumpdriver_(pump_driver),
+    pump_definitions_(pump_definitions) {
 
     for (auto i : kPumpIngredientsInit) {
         pump_ingredients_bimap_.insert(boost::bimap<int, string>::value_type(i.first, i.second));
     }
 
-    string config_string;
-    if (simulation_) {
-        pumpdriver_ = new PumpDriverSimulation();
-        LOG(INFO)<< "The simulation mode is on. Firmata not active!";
-        config_string = "simulation";
-
-    } else {
-        pumpdriver_ = new PumpDriverFirmata();
-        config_string = serialport_;
+    for (auto i : pump_definitions_) {
+        FlowLog log;
+        log.flow = 0;
+        log.start_time = chrono::system_clock::now();
+        flow_logs_[i.first] = log;
     }
 
-    bool success = pumpdriver_->Init(config_string.c_str(), pump_definitions_, this);
-    if (success) {
-        timeprogramrunner_ = new TimeProgramRunner(this, pumpdriver_);
-        SetPumpControlState(PUMP_STATE_IDLE);
-    } else {
-        SetPumpControlState(PUMP_STATE_ERROR);
-        LOG(ERROR)<< "Could not initialize the Pump Driver. You can now close the application.";
-    }
+    timeprogramrunner_ = new TimeProgramRunner(this);
+    SetPumpControlState(PUMP_STATE_IDLE);
 }
 
 PumpControl::~PumpControl() {
     LOG(DEBUG) << "PumpControl destructor";
 
-    if(timeprogramrunner_) {
-        timeprogramrunner_->Shutdown();
-        delete timeprogramrunner_;
-    }
-    if(pumpdriver_) {
-        delete pumpdriver_;
-    }
+    timeprogramrunner_->Shutdown();
+    delete timeprogramrunner_;
 
     LOG(DEBUG) << "PumpControl destructor finished";
 }
@@ -327,7 +309,7 @@ void PumpControl::SetAmountForPump(int pump_number, int amount){
     if(pump_ingredients_bimap_.left.find(pump_number) == pump_ingredients_bimap_.left.end()) {
          throw out_of_range("Pump number given doesn't exist");
     }
-    pumpdriver_->SetAmountForPump(pump_number, amount);
+    pump_amount_map_[pump_number] = amount;
 }
 
 string PumpControl::GetIngredientForPump(int pump_number) const{
@@ -367,7 +349,7 @@ float PumpControl::SwitchPump(size_t pump_number, bool switch_on) {
     }
     const PumpDriverInterface::PumpDefinition& pump_definition = GetPumpDefinition(pump_number);
     float new_flow = switch_on ? pump_definition.max_flow : 0;
-    pumpdriver_->SetPump(pump_number, new_flow);
+    SetFlow(pump_number, new_flow);
     return new_flow;
 }
 
@@ -387,6 +369,39 @@ void PumpControl::LeaveServiceMode(){
     }
 }
 
+void PumpControl::TrackAmounts(int pump_number, float flow)
+{
+    auto it = pump_amount_map_.find(pump_number);
+    auto now = chrono::system_clock::now();
+    if(it != pump_amount_map_.end()) {
+        auto flowLog = flow_logs_[pump_number];
+        float lastFlow = flowLog.flow;
+        auto startTime = flowLog.start_time;
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+        if(lastFlow > 0)
+        {
+            if(lastFlow < pump_amount_map_[pump_number]) {
+                pump_amount_map_[pump_number] = pump_amount_map_[pump_number] - lastFlow * duration;
+            } else {
+                pump_amount_map_[pump_number] = 0;
+            }
+            if(pump_amount_map_[pump_number]< warn_level) {
+                PumpDriverAmountWarning(pump_number, warn_level);
+            }
+        }
+        // LOG(DEBUG) << "Amount left in " << pump_number << " is " << pump_amount_map_[pump_number] << "ml";
+    }
+}
 
+void PumpControl::SetFlow(size_t pump_number, float flow){
+    float effective_flow = pumpdriver_->SetFlow(pump_number, flow);
+    TrackAmounts(pump_number, effective_flow);
+}
+
+void PumpControl::SetAllPumpsOff(){
+    for (auto i : pump_definitions_) {
+        SetFlow(i.first, 0);
+    }
+}
 
 

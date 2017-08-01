@@ -3,9 +3,8 @@
 
 using namespace std;
 
-TimeProgramRunner::TimeProgramRunner(TimeProgramRunnerCallback* callback_client, PumpDriverInterface *pump_driver):
+TimeProgramRunner::TimeProgramRunner(TimeProgramRunnerCallback* callback_client):
     callback_client_(callback_client),
-    pump_driver_(pump_driver),
     thread_(&TimeProgramRunner::Run, this) {
 }
 
@@ -59,7 +58,7 @@ void TimeProgramRunner::Run() {
                 if (current_time >= timeprogram_time) {
                     auto it = timeprogram_.find(timeprogram_time);
                     for (auto i : it->second) {
-                        pump_driver_->SetPump(i.first, i.second);
+                        callback_client_->SetFlow(i.first, i.second);
                     }
                     // callback_client_->TimeProgramRunnerProgressUpdate(programm_id_,(100 * it->first) / (--timeprogram_.end())->first);
                     it++;
@@ -83,10 +82,7 @@ void TimeProgramRunner::Run() {
                 break;
             }
             case TimeProgramRunnerCallback::TIME_PROGRAM_STOPPING: {
-                int pumpCount = pump_driver_->GetPumpCount();
-                for (int i = 1; i <= pumpCount; i++) {
-                    pump_driver_->SetPump(i, 0);
-                }
+                callback_client_->SetAllPumpsOff();
                 break;
             }
             case TimeProgramRunnerCallback::TIME_PROGRAM_INIT: {

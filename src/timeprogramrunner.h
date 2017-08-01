@@ -14,7 +14,7 @@ class TimeProgramRunner {
     public:
         typedef std::map<int, std::map<int, float> > TimeProgram;
 
-        TimeProgramRunner(TimeProgramRunnerCallback *callback_client, PumpDriverInterface *pump_driver);
+        TimeProgramRunner(TimeProgramRunnerCallback *callback_client);
         virtual ~TimeProgramRunner();
 
         void Run();
@@ -24,7 +24,6 @@ class TimeProgramRunner {
 
     private:
         TimeProgramRunnerCallback* callback_client_;
-        PumpDriverInterface* pump_driver_;
         TimeProgramRunnerCallback::State timeprogramrunner_target_state_ =
                 TimeProgramRunnerCallback::TIME_PROGRAM_IDLE;
         TimeProgramRunnerCallback::State timeprogramrunner_state_ =

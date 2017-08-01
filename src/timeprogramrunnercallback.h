@@ -32,6 +32,8 @@ class TimeProgramRunnerCallback {
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent) = 0;
         virtual void TimeProgramRunnerStateUpdate(State state) = 0;
         virtual void TimeProgramRunnerProgramEnded(std::string id) = 0;
+        virtual void SetFlow(size_t pump_number, float flow) = 0;
+        virtual void SetAllPumpsOff() = 0;
 };
 
 #endif

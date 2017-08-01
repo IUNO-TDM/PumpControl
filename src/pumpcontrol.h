@@ -11,10 +11,10 @@
 #include <mutex>
 #include <boost/bimap.hpp>
 
-class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback, public PumpDriverCallbackClient {
+class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback {
 
     public:
-        PumpControl(std::string serial_port, bool simulation,
+        PumpControl(PumpDriverInterface* pump_driver,
                 std::map<int, PumpDriverInterface::PumpDefinition> pump_configurations);
 
         virtual ~PumpControl();
@@ -37,11 +37,20 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent);
         virtual void TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State state);
         virtual void TimeProgramRunnerProgramEnded(std::string id);
-        virtual void PumpDriverAmountWarning(int pump_number, int amount_left);
+        virtual void SetFlow(size_t pump_number, float flow);
+        virtual void SetAllPumpsOff();
 
         virtual void SetPumpControlState(PumpControlState state);
 
     private:
+
+        struct FlowLog {
+                float flow;
+                std::chrono::system_clock::time_point start_time;
+        };
+
+        void PumpDriverAmountWarning(int pump_number, int amount_left);
+
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
         PumpDriverInterface* pumpdriver_ = NULL;
         std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions_;
@@ -52,8 +61,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         TimeProgramRunner* timeprogramrunner_ = NULL;
         TimeProgramRunner::TimeProgram timeprogram_;
 
-        std::string serialport_;
-        bool simulation_;
+        std::map<int, float> pump_amount_map_;
+        std::map<int, FlowLog> flow_logs_;
 
         boost::bimap<int, std::string> pump_ingredients_bimap_;
         
@@ -69,10 +78,14 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
         int CreateTimeProgram(nlohmann::json j, TimeProgramRunner::TimeProgram &timeprogram);
 
+        void TrackAmounts(int pump_number, float flow);
+
         int GetMaxElement(std::map<int, float> list);
         int GetMinElement(std::map<int, float> list);
         void SeparateTooFastIngredients(std::vector<int> *separated_pumps, std::map<int, float> min_list,
                 std::map<int, float> max_list);
+
+        const int warn_level = 100;
 };
 
 #endif
