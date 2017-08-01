@@ -5,12 +5,9 @@
 #include "timeprogramrunnercallback.h"
 
 #include <map>
-#include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <chrono>
 #include <string>
-#include <stdlib.h>
 
 class TimeProgramRunner {
     public:
@@ -25,8 +22,8 @@ class TimeProgramRunner {
         void EmergencyStopProgram();
 
     private:
-        TimeProgramRunnerCallback *callback_client_;
-        PumpDriverInterface *pump_driver_;
+        TimeProgramRunnerCallback* callback_client_;
+        PumpDriverInterface* pump_driver_;
         TimeProgramRunnerCallback::State timeprogramrunner_target_state_ =
                 TimeProgramRunnerCallback::TIME_PROGRAM_IDLE;
         TimeProgramRunnerCallback::State timeprogramrunner_state_ =
@@ -35,7 +32,6 @@ class TimeProgramRunner {
         std::condition_variable condition_variable_;
         std::mutex time_lock_mutex_;
         std::mutex state_machine_mutex_;
-        // std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions_;
         std::string programm_id_;
 };
 
