@@ -6,10 +6,8 @@
 
 #include "json.hpp"
 
-#include <unistd.h>
 #include <map>
 #include <vector>
-#include <thread>
 #include <mutex>
 #include <boost/bimap.hpp>
 
@@ -45,14 +43,13 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
     private:
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
-        PumpDriverInterface *pumpdriver_ = NULL;
+        PumpDriverInterface* pumpdriver_ = NULL;
         std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions_;
 
         PumpControlCallback* callback_client_ = NULL;
         std::mutex callback_client_mutex_;
 
-        TimeProgramRunner *timeprogramrunner_ = NULL;
-
+        TimeProgramRunner* timeprogramrunner_ = NULL;
         TimeProgramRunner::TimeProgram timeprogram_;
 
         std::string serialport_;
@@ -69,8 +66,6 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
                 { 6, "Johannisbeersaft" },
                 { 7, "Cola" },
                 { 8, "Fanta" } };
-
-        std::thread timeprogramrunner_thread_;
 
         int CreateTimeProgram(nlohmann::json j, TimeProgramRunner::TimeProgram &timeprogram);
 

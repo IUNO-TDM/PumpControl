@@ -5,10 +5,12 @@ using namespace std;
 
 TimeProgramRunner::TimeProgramRunner(TimeProgramRunnerCallback* callback_client, PumpDriverInterface *pump_driver):
     callback_client_(callback_client),
-    pump_driver_(pump_driver) {
+    pump_driver_(pump_driver),
+    thread_(&TimeProgramRunner::Run, this) {
 }
 
 TimeProgramRunner::~TimeProgramRunner() {
+    thread_.join();
 }
 
 void TimeProgramRunner::Run() {

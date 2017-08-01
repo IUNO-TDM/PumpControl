@@ -34,7 +34,6 @@ PumpControl::PumpControl(string serial_port, bool simulation,
     bool success = pumpdriver_->Init(config_string.c_str(), pump_definitions_, this);
     if (success) {
         timeprogramrunner_ = new TimeProgramRunner(this, pumpdriver_);
-        timeprogramrunner_thread_ = thread(&TimeProgramRunner::Run, timeprogramrunner_);
         SetPumpControlState(PUMP_STATE_IDLE);
     } else {
         SetPumpControlState(PUMP_STATE_ERROR);
@@ -47,9 +46,6 @@ PumpControl::~PumpControl() {
 
     if(timeprogramrunner_) {
         timeprogramrunner_->Shutdown();
-        if(timeprogramrunner_thread_.joinable()) {
-            timeprogramrunner_thread_.join();
-        }
         delete timeprogramrunner_;
     }
     if(pumpdriver_) {

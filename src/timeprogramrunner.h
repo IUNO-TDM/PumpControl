@@ -6,6 +6,7 @@
 
 #include <map>
 #include <mutex>
+#include <thread>
 #include <condition_variable>
 #include <string>
 
@@ -33,6 +34,7 @@ class TimeProgramRunner {
         std::mutex time_lock_mutex_;
         std::mutex state_machine_mutex_;
         std::string programm_id_;
+        std::thread thread_;
 };
 
 #endif
