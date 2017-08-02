@@ -38,7 +38,7 @@ PumpControl::~PumpControl() {
 }
 
 void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
-    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    lock_guard<mutex> lock(callback_client_mutex_);
     if( !callback_client_ ){
         callback_client_ = client;
         callback_client_->NewPumpControlState(pumpcontrol_state_);
@@ -48,7 +48,7 @@ void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
 }
 
 void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
-    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    lock_guard<mutex> lock(callback_client_mutex_);
     if( callback_client_ == client ){
         callback_client_ = NULL;
     }else{
@@ -57,16 +57,19 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
 }
 
 void PumpControl::StartProgram(const string& recipe_json_string) {
-    SetPumpControlState(PUMP_STATE_ACTIVE);
-    json j = json::parse(recipe_json_string);
+    json j;
+    try {
+        j = json::parse(recipe_json_string);
+    } catch (logic_error& ex) {
+        throw invalid_argument(ex.what());
+    }
     int max_time = CreateTimeProgram(j["recipe"], timeprogram_);
     if (max_time > 0) {
+        SetPumpControlState(PUMP_STATE_ACTIVE);
         string recipe_id = j["recipe"]["id"];
         string order_name = j["orderName"];
         LOG(DEBUG)<< "Successfully imported recipe: " << recipe_id << " for order: " << order_name;
         timeprogramrunner_->StartProgram(order_name.c_str(), timeprogram_);
-    } else {
-        SetPumpControlState(PUMP_STATE_IDLE);
     }
 }
 
@@ -182,10 +185,11 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
     } catch(const exception& ex) {
         LOG(ERROR)<<"Failed to create timeprogram: "<<ex.what();
         time = -1;
-        std::lock_guard<std::mutex> lock(callback_client_mutex_);
+        lock_guard<mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->Error("TimeProgramParseError", 1, ex.what());
         }
+        throw;
     }
 
     return time;
@@ -252,18 +256,18 @@ void PumpControl::SetPumpControlState(PumpControlState state) {
     }
 
     if (pumpcontrol_state_ == state) {
-        std::lock_guard<std::mutex> lock(callback_client_mutex_);
+        lock_guard<mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->NewPumpControlState(pumpcontrol_state_);
         }
     } else {
-        throw logic_error("State switch not allowed.");
+        throw not_in_this_state("State switch not allowed.");
     }
 }
 
 void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
     LOG(DEBUG)<< "TimeProgramRunnerProgressUpdate " << percent << " : " << id;
-    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    lock_guard<mutex> lock(callback_client_mutex_);
     if(callback_client_){
         callback_client_->ProgressUpdate(id, percent);
     }
@@ -288,7 +292,7 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
 void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     LOG(DEBUG)<< "TimeProgramRunnerProgramEnded" << id;
     {
-        std::lock_guard<std::mutex> lock(callback_client_mutex_);
+        lock_guard<mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->ProgramEnded(id);
         }
@@ -299,7 +303,7 @@ void PumpControl::TimeProgramRunnerProgramEnded(string id) {
 void PumpControl::PumpDriverAmountWarning(int pump_number, int amountWarningLimit) {
     string ingredient = pump_ingredients_bimap_.left.at(pump_number);
     LOG(DEBUG)<< "PumpDriverAmountWarning: number:" << pump_number << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
-    std::lock_guard<std::mutex> lock(callback_client_mutex_);
+    lock_guard<mutex> lock(callback_client_mutex_);
     if(callback_client_){
         callback_client_->AmountWarning(pump_number, ingredient, amountWarningLimit);
     }
@@ -319,7 +323,7 @@ string PumpControl::GetIngredientForPump(int pump_number) const{
     return pump_ingredients_bimap_.left.at(pump_number);
 }
 
-void PumpControl::SetIngredientForPump(int pump_number, const std::string& ingredient) {
+void PumpControl::SetIngredientForPump(int pump_number, const string& ingredient) {
     auto it = pump_ingredients_bimap_.left.find(pump_number);
     if(it == pump_ingredients_bimap_.left.end())    {
         throw out_of_range("Pump number given doesn't exist");
@@ -345,7 +349,7 @@ PumpDriverInterface::PumpDefinition PumpControl::GetPumpDefinition(size_t pump_n
 
 float PumpControl::SwitchPump(size_t pump_number, bool switch_on) {
     if(pumpcontrol_state_ != PUMP_STATE_SERVICE){
-        throw logic_error("not in service state");
+        throw not_in_this_state("not in service state");
     }
     const PumpDriverInterface::PumpDefinition& pump_definition = GetPumpDefinition(pump_number);
     float new_flow = switch_on ? pump_definition.max_flow : 0;
@@ -357,7 +361,7 @@ void PumpControl::EnterServiceMode(){
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_SERVICE);
     } else {
-        throw logic_error("Can't enter service while not in idle.");
+        throw not_in_this_state("Can't enter service while not in idle.");
     }
 }
 
@@ -365,7 +369,7 @@ void PumpControl::LeaveServiceMode(){
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_IDLE);
     } else {
-        throw logic_error("Can't leave service while not in service.");
+        throw not_in_this_state("Can't leave service while not in service.");
     }
 }
 
@@ -377,7 +381,7 @@ void PumpControl::TrackAmounts(int pump_number, float flow)
         auto flowLog = flow_logs_[pump_number];
         float lastFlow = flowLog.flow;
         auto startTime = flowLog.start_time;
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+        auto duration = chrono::duration_cast<chrono::milliseconds>(now - startTime).count();
         if(lastFlow > 0)
         {
             if(lastFlow < pump_amount_map_[pump_number]) {

@@ -181,8 +181,12 @@ void WebInterface::HandleStartProgram(const string& program_string, HttpResponse
     try {
         pump_control_->StartProgram(program_string);
         response.Set(200, "SUCCESS");
-    } catch(logic_error&) {
+    } catch(PumpControlInterface::not_in_this_state&) {
         response.Set(500, "Wrong state for starting a program");
+    } catch(out_of_range&) {
+        response.Set(500, "Program ingredients error");
+    } catch(logic_error&) {
+        response.Set(500, "Program parse error");
     }
 }
 
@@ -263,7 +267,7 @@ void WebInterface::HandleEnterServiceMode(HttpResponse& response){
         pump_control_->EnterServiceMode();
         LOG(DEBUG)<< "Successfully entered service mode";
         response.Set(200, "Successfully entered service mode");
-    } catch(logic_error&) {
+    } catch(PumpControlInterface::not_in_this_state&) {
         LOG(DEBUG)<< "Could not enter service mode";
         response.Set(500, "Could not enter service mode");
     }
@@ -275,7 +279,7 @@ void WebInterface::HandleLeaveServiceMode(HttpResponse& response){
         pump_control_->LeaveServiceMode();
         LOG(DEBUG)<< "Successfully left service mode";
         response.Set(200, "Successfully left service mode");
-    } catch(logic_error&) {
+    } catch(PumpControlInterface::not_in_this_state&) {
         LOG(DEBUG)<< "Could not leave service mode";
         response.Set(500, "Could not leave service mode");
     }
@@ -296,7 +300,7 @@ void WebInterface::HandleSwitchPump(const string& pump_number_string, const stri
     } catch(out_of_range&) {
         LOG(DEBUG)<< "Pump number " << pump_number << " can't be switched because it is out of range";
         response.Set(400, "Requested Pump not available");
-    } catch(logic_error&) {
+    } catch(PumpControlInterface::not_in_this_state&) {
         LOG(DEBUG)<< "Pump control is not in service mode";
         response.Set(400, response.response_message = "PumpControl not in Service mode");
     }

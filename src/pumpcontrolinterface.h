@@ -9,6 +9,11 @@ class PumpControlCallback;
 
 class PumpControlInterface {
     public:
+        class not_in_this_state : public std::logic_error {
+            public:
+              explicit not_in_this_state (const std::string& what_arg) : std::logic_error(what_arg){}
+        };
+
         enum PumpControlState {
             PUMP_STATE_UNINITIALIZED = 0,
             PUMP_STATE_IDLE = 1,
