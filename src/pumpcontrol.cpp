@@ -56,7 +56,10 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
     }
 }
 
-void PumpControl::StartProgram(const string& recipe_json_string) {
+void PumpControl::StartProgram(const string& in) {
+    string recipe_json_string;
+    DecryptProgram(in, recipe_json_string);
+
     json j;
     try {
         j = json::parse(recipe_json_string);

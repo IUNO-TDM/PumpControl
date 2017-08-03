@@ -49,6 +49,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
                 std::chrono::system_clock::time_point start_time;
         };
 
+        void DecryptProgram(const std::string& in, std::string& out);
+
         void PumpDriverAmountWarning(int pump_number, int amount_left);
 
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;

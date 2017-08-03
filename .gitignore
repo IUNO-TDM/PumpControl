@@ -6,3 +6,4 @@ lib/downloaded
 logs
 /.cproject
 /.project
+/private_src/

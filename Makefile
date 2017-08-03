@@ -9,8 +9,13 @@ SRC_DIRS = ./src \
 3DP_LIBS = $(shell find $(LIB_DIR) -name *.a)
 3DP_DIRS = $(dir $(3DP_LIBS))
 
-
 SRCS = $(shell find $(SRC_DIRS) -name *.cpp -or -name *.c -or -name *.s)
+
+ifneq ("$(wildcard ./private_src/decrypt.cpp)","")
+SRCS := $(filter-out ./src/decrypt.cpp,$(SRCS))
+SRCS += ./private_src/decrypt.cpp
+endif
+
 OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS = $(OBJS:.o=.d)
 INC_DIRS = $(shell find $(SRC_DIRS) -type d)
