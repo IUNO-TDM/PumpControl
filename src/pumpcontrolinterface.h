@@ -22,6 +22,13 @@ class PumpControlInterface {
             PUMP_STATE_ERROR = 4
         };
 
+        enum Timing {
+            TIMING_BY_MACHINE = 0,
+            TIMING_ALL_FAST_START_PARALLEL = 1,
+            TIMING_INTERPOLATED_FINISH_PARALLEL = 2,
+            TIMING_SEQUENTIAL = 3
+        };
+
         static const char* NameForPumpControlState(PumpControlState state) {
             switch (state) {
                 case PUMP_STATE_ACTIVE:
