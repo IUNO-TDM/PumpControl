@@ -32,7 +32,7 @@ INC_DIRS += /usr/local/opt/openssl/include
 INC_DIRS += /usr/local/Cellar/boost/1.63.0/include/
 else
 # check for Linux and run other commands
-LDFLAGS := -g -lcrypto -lboost_system -lboost_regex -lboost_program_options -lpthread
+LDFLAGS := -g -lcrypto -lboost_system -lboost_regex -lboost_program_options -lpthread -lwibucm
 endif
 
 

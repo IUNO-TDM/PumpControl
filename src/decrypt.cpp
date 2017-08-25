@@ -1,7 +1,5 @@
 #include "pumpcontrol.h"
 
-using namespace std;
-
-void PumpControl::DecryptProgram(const string& in, string& out){
-    out = in;
+void PumpControl::DecryptPrivate(const CryptoBuffer& in, CryptoBuffer& out){
+    out.set(in, in.size());
 }

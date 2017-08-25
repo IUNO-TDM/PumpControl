@@ -1,7 +1,13 @@
 #include "pumpcontrol.h"
 #include "pumpcontrolcallback.h"
+#include "cryptohelpers.h"
 
 #include "easylogging++.h"
+
+#include <openssl/conf.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+#include <openssl/buffer.h>
 
 #include <cfloat>
 
@@ -59,18 +65,19 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
 void PumpControl::StartProgram(const string& in) {
     string recipe_json_string;
     DecryptProgram(in, recipe_json_string);
-
     json j;
     try {
         j = json::parse(recipe_json_string);
+        LOG(DEBUG)<< "Got a valid json string.";
     } catch (logic_error& ex) {
+        LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
         throw invalid_argument(ex.what());
     }
     int max_time = CreateTimeProgram(j["recipe"], timeprogram_);
     if (max_time > 0) {
         SetPumpControlState(PUMP_STATE_ACTIVE);
         string recipe_id = j["recipe"]["id"];
-        string order_name = j["orderName"];
+        string order_name = "NO ORDER NAME";// j["orderName"];
         LOG(DEBUG)<< "Successfully imported recipe: " << recipe_id << " for order: " << order_name;
         timeprogramrunner_->StartProgram(order_name.c_str(), timeprogram_);
     }
@@ -416,5 +423,28 @@ void PumpControl::SetAllPumpsOff(){
         SetFlow(i.first, 0);
     }
 }
+
+void PumpControl::DecryptProgram(const string& in, string& out){
+    ERR_load_crypto_strings();
+    OpenSSL_add_all_algorithms();
+    OPENSSL_config(NULL);
+
+    CryptoBuffer buffer;
+    CryptoHelpers::Unbase64(in, buffer);
+    CryptoHelpers::CmDecrypt(buffer);
+
+    CryptoBuffer program;
+    DecryptPrivate(buffer, program);
+    out = program;
+
+    EVP_cleanup();
+    ERR_free_strings();
+}
+
+
+
+
+
+
 
 

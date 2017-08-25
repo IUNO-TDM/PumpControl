@@ -3,6 +3,7 @@
 
 #include "pumpcontrolinterface.h"
 #include "timeprogramrunner.h"
+#include "cryptobuffer.h"
 
 #include "json.hpp"
 
@@ -49,7 +50,9 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
                 std::chrono::system_clock::time_point start_time;
         };
 
-        void DecryptProgram(const std::string& in, std::string& out);
+        static void DecryptProgram(const std::string& in, std::string& out);
+
+        static void DecryptPrivate(const CryptoBuffer& in, CryptoBuffer& out);
 
         void PumpDriverAmountWarning(int pump_number, int amount_left);
 
