@@ -16,31 +16,14 @@
 using namespace std;
 
 void CryptoHelpers::Unbase64(const string& in, CryptoBuffer& out){
-    string in_lf;
-    size_t insize = in.size();
-    size_t chars_without_lf = 0;
-    for(size_t i=0; i<insize; i++){
-        if(chars_without_lf >= 64){
-            in_lf+='\n';
-            chars_without_lf=0;
-        }
-        char c = in.at(i);
-        if(c != '\n'){
-            in_lf+=c;
-            chars_without_lf++;
-        }
-    }
-    if(in_lf.at(in_lf.size()-1 != '\n')){
-        in_lf+='\n';
-    }
-
-    unsigned char* buffer = new unsigned char[in_lf.length()+1];
-    memset(buffer, 0, in_lf.length()+1);
+    unsigned char* buffer = new unsigned char[in.length()+1];
+    memset(buffer, 0, in.length()+1);
     BIO* b64 = BIO_new(BIO_f_base64());
-    BIO* bmem = BIO_new_mem_buf(in_lf.c_str(), in_lf.length());
+    BIO* bmem = BIO_new_mem_buf(in.c_str(), in.length());
     bmem = BIO_push(b64, bmem);
 
-    BIO_read(bmem, buffer, in_lf.length());
+    BIO_set_flags(bmem, BIO_FLAGS_BASE64_NO_NL);
+    BIO_read(bmem, buffer, in.length());
     out.set(buffer, bmem->num_read);
 
     BIO_free_all(bmem);
@@ -64,10 +47,10 @@ string CryptoHelpers::CmErrorCodeAsString()
     }
 }
 
-void CryptoHelpers::CmDecrypt(CryptoBuffer& buffer)
+void CryptoHelpers::CmDecrypt(unsigned long product_id, CryptoBuffer& buffer)
 {
     CMULONG ulFirmCode = 6000274;
-    CMULONG ulProductCode = 1;
+    CMULONG ulProductCode = product_id;
     CMULONG ulExtType = 0;
     CMULONG ulFeatureCode = 0;
 

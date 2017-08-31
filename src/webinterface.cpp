@@ -128,8 +128,8 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
     string combined = method + ":" + path + ":" + body;
     boost::smatch what;
 
-    if (boost::regex_search(combined, what, boost::regex("^PUT:\\/program\\/?:.*$"))) {
-        HandleStartProgram(body, response);
+    if (boost::regex_search(combined, what, boost::regex("^PUT:\\/program\\/([0-9]+)\\/?:.*$"))) {
+        HandleStartProgram(what[1].str(), body, response);
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/ingredients\\/([0-9]{1,2})\\/amount\\/?:([0-9]+)$"))) {
         HandleSetAmountForPump(what[1].str(), body, response);
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/ingredients\\/([0-9]{1,2})\\/?:(.+)$"))) {
@@ -164,7 +164,7 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
         response.Set(404, "On/off (body) is invalid or empty");
     } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/service\\/?:.*$"))) {
         response.Set(400, "Wrong method for this URL");
-    } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/program\\/?:.*$"))) {
+    } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/program\\/([0-9]+)\\/?:.*$"))) {
         response.Set(400, "Wrong method for this URL");
     } else {
         response.Set(400, "Path could not be recognized");
@@ -177,10 +177,15 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
     }
 }
 
-void WebInterface::HandleStartProgram(const string& program_string, HttpResponse& response){
+void WebInterface::HandleStartProgram(const string& product_id, const string& program_string, HttpResponse& response){
     try {
-        pump_control_->StartProgram(program_string);
-        response.Set(200, "SUCCESS");
+        unsigned long long productid = strtoull(product_id.c_str(), NULL, 10);
+        if(productid <= 0xffffffff){
+            pump_control_->StartProgram(productid, program_string);
+            response.Set(200, "SUCCESS");
+        }else{
+            response.Set(500, "Invalid product id");
+        }
     } catch(PumpControlInterface::not_in_this_state&) {
         response.Set(500, "Wrong state for starting a program");
     } catch(out_of_range&) {

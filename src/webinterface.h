@@ -45,7 +45,7 @@ class WebInterface : public PumpControlCallback{
         void HandleHttpMessage(const std::string& method, const std::string& path, const std::string& body,
                 HttpResponse& response);
 
-        void HandleStartProgram(const std::string& program_string, HttpResponse& response);
+        void HandleStartProgram(const std::string& product_id, const std::string& program_string, HttpResponse& response);
         void HandleGetPumps(HttpResponse& response);
         void HandleSetAmountForPump(const std::string& pump_number_string, const std::string& amount_string, HttpResponse& response);
         void HandleGetIngredientForPump(const std::string& pump_number_string, HttpResponse& response);

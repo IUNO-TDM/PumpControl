@@ -30,7 +30,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual size_t GetNumberOfPumps() const;
         virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_number) const;
         virtual float SwitchPump(size_t pump_number, bool switch_on);
-        virtual void StartProgram(const std::string& receipt_json_string);
+        virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string);
         virtual void EnterServiceMode();
         virtual void LeaveServiceMode();
 
@@ -50,7 +50,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
                 std::chrono::system_clock::time_point start_time;
         };
 
-        static void DecryptProgram(const std::string& in, std::string& out);
+        static void DecryptProgram(unsigned long product_id, const std::string& in, std::string& out);
 
         static void DecryptPrivate(const CryptoBuffer& in, CryptoBuffer& out);
 

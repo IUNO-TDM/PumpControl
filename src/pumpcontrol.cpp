@@ -62,9 +62,9 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
     }
 }
 
-void PumpControl::StartProgram(const string& in) {
+void PumpControl::StartProgram(unsigned long product_id, const string& in) {
     string recipe_json_string;
-    DecryptProgram(in, recipe_json_string);
+    DecryptProgram(product_id, in, recipe_json_string);
     json j;
     try {
         j = json::parse(recipe_json_string);
@@ -424,14 +424,14 @@ void PumpControl::SetAllPumpsOff(){
     }
 }
 
-void PumpControl::DecryptProgram(const string& in, string& out){
+void PumpControl::DecryptProgram(unsigned long product_id, const string& in, string& out){
     ERR_load_crypto_strings();
     OpenSSL_add_all_algorithms();
     OPENSSL_config(NULL);
 
     CryptoBuffer buffer;
     CryptoHelpers::Unbase64(in, buffer);
-    CryptoHelpers::CmDecrypt(buffer);
+    CryptoHelpers::CmDecrypt(product_id, buffer);
 
     CryptoBuffer program;
     DecryptPrivate(buffer, program);
