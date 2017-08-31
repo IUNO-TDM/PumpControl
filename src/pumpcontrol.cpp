@@ -76,10 +76,8 @@ void PumpControl::StartProgram(unsigned long product_id, const string& in) {
     int max_time = CreateTimeProgram(j["recipe"], timeprogram_);
     if (max_time > 0) {
         SetPumpControlState(PUMP_STATE_ACTIVE);
-        string recipe_id = j["recipe"]["id"];
-        string order_name = "NO ORDER NAME";// j["orderName"];
-        LOG(DEBUG)<< "Successfully imported recipe: " << recipe_id << " for order: " << order_name;
-        timeprogramrunner_->StartProgram(order_name.c_str(), timeprogram_);
+        LOG(DEBUG)<< "Successfully imported recipe for product code " << product_id << ".";
+        timeprogramrunner_->StartProgram("no order name", timeprogram_);
     }
 }
 
