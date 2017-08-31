@@ -34,6 +34,8 @@ class CryptoBuffer{
 
         void set(const unsigned char* buffer, size_t size);
 
+        void set(const std::string& in);
+
     private:
         // remark: buffer_ is one byte larger than size_ to support zero termination
         //         as long as size_ is > 0

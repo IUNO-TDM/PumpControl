@@ -12,6 +12,7 @@
 
 #include <string.h>
 #include <sstream>
+#include <stdexcept>
 
 using namespace std;
 
@@ -19,7 +20,10 @@ void CryptoHelpers::Unbase64(const string& in, CryptoBuffer& out){
     unsigned char* buffer = new unsigned char[in.length()+1];
     memset(buffer, 0, in.length()+1);
     BIO* b64 = BIO_new(BIO_f_base64());
-    BIO* bmem = BIO_new_mem_buf(in.c_str(), in.length());
+    // unfortunately some versions of openssl erroneously lack const at the first arg of the following call, so work around...
+    CryptoBuffer workaround;
+    workaround.set(in);
+    BIO* bmem = BIO_new_mem_buf(workaround, workaround.size());
     bmem = BIO_push(b64, bmem);
 
     BIO_set_flags(bmem, BIO_FLAGS_BASE64_NO_NL);
@@ -86,9 +90,11 @@ void CryptoHelpers::CmDecrypt(unsigned long product_id, CryptoBuffer& buffer)
 
 void CryptoHelpers::RsaDecrypt(const char* rsa_private_key, const CryptoBuffer& in, size_t expected_size, CryptoBuffer& out){
 
-    BIO* keybio = BIO_new_mem_buf(rsa_private_key, -1);
-    if (!keybio)
-    {
+    // unfortunately some versions of openssl erroneously lack const at the first arg of the following call, so work around...
+    CryptoBuffer workaround;
+    workaround.set(rsa_private_key);
+    BIO* keybio = BIO_new_mem_buf(workaround, -1);
+    if (!keybio){
         printf( "Failed to create key BIO");
     }
     RSA* rsa = NULL;

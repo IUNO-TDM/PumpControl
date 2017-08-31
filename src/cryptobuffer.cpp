@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+using namespace std;
+
 CryptoBuffer::CryptoBuffer(): buffer_(NULL), size_(0){
 }
 
@@ -32,4 +34,8 @@ void CryptoBuffer::set(const unsigned char* buffer, size_t size){
         memcpy(buffer_, buffer, size_);
         buffer_[size_] = 0;
     }
+}
+
+void CryptoBuffer::set(const string& in){
+    set(reinterpret_cast<const unsigned char*>(in.c_str()), in.length());
 }
