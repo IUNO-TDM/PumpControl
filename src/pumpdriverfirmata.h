@@ -1,45 +1,27 @@
 #ifndef PUMPDRIVERFIRMATA_H
 #define PUMPDRIVERFIRMATA_H
-#include <pumpdriverinterface.h>
+
+#include "pumpdriverinterface.h"
 #include "firmata.h"
 #include "firmserial.h"
-#include <chrono>
 
 class PumpDriverFirmata: public PumpDriverInterface {
-  public:
-    PumpDriverFirmata();
-    virtual ~PumpDriverFirmata();
+    public:
+        PumpDriverFirmata();
+        virtual ~PumpDriverFirmata();
 
-    bool Init(const char* config_text_ptr, std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions, PumpDriverCallbackClient* callbackClient);
-    void DeInit();
+        virtual bool Init(const char* config_text_ptr, std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions);
+        virtual void DeInit();
 
-    // void GetPumps(std::map<int, PumpDriverInterface::PumpDefinition>* pump_definitions);
-    int GetPumpCount();
-    void SetPump(int pump_number, float flow);
-    void SetAmountForPump(int pump_number, int amount);
+        virtual int GetPumpCount();
+        virtual float SetFlow(int pump_number, float flow);
 
-    struct FlowLog{
-      float flow;
-      std::chrono::system_clock::time_point start_time;
-    };
+    private:
+        firmata::Firmata<firmata::Base, firmata::I2C>* firmata_ = NULL;
+        firmata::FirmSerial* serialio_ = NULL;
 
-  private:
-    // t_firmata     *firmata_;
-    firmata::Firmata<firmata::Base, firmata::I2C>* firmata_ = NULL;
-	  firmata::FirmSerial* serialio_;
-
-    std::map<int,PumpDriverInterface::PumpDefinition> pump_definitions_;
-
-    std::map<int, bool> pump_is_pwm_;
-
-    std::map<int,float> pump_amount_map_;
-
-    
-
-    std::map<int,FlowLog> flow_logs_;
-
-    const int warn_level = 100;
-    PumpDriverCallbackClient* callback_client_;
-
+        std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions_;
+        std::map<int, bool> pump_is_pwm_;
 };
+
 #endif
