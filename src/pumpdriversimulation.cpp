@@ -9,15 +9,14 @@ PumpDriverSimulation::PumpDriverSimulation() {
 PumpDriverSimulation::~PumpDriverSimulation() {
 }
 
-bool PumpDriverSimulation::Init(const char *config_text_ptr,
-        std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
-    LOG(INFO)<< "init with config text" << config_text_ptr;
+bool PumpDriverSimulation::Init(const char*, const map<int, PumpDefinition>& pump_definitions) {
+    LOG(INFO)<< "Init";
     pump_definitions_ = pump_definitions;
     return true;
 }
 
 void PumpDriverSimulation::DeInit() {
-    LOG(INFO)<< "deInit";
+    LOG(INFO)<< "DeInit";
 }
 
 int PumpDriverSimulation::GetPumpCount() {
@@ -25,6 +24,6 @@ int PumpDriverSimulation::GetPumpCount() {
 }
 
 float PumpDriverSimulation::SetFlow(int pump_number, float flow) {
-    LOG(INFO)<< "setPump " << pump_number << " : "<< flow;
+    LOG(INFO)<< "SetFlow " << pump_number << " : "<< flow;
     return flow;
 }

@@ -2,6 +2,7 @@ TARGET_EXEC ?= pumpcontrol.out
 OS := $(shell uname)
 BUILD_DIR ?= ./build
 LIB_DIR ?= ./lib
+OS_ID := $(shell grep '^ID=' /etc/os-release | sed s/ID=//)
 
 SRC_DIRS = ./src \
 	$(shell find $(LIB_DIR) -type d -path \*src -not -path \*test\*)
@@ -39,7 +40,7 @@ endif
 DOWNLOAD_FILES := $(shell find $(LIB_DIR) -name *.download)
 DOWNLOADED_FILES := $(DOWNLOAD_FILES:%.download=%.downloaded)
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall -g
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall -g -DOS_$(OS_ID)
 
 %.downloaded: %.download
 	$(MKDIR_P) $(dir $<)/downloaded/$(basename $(notdir $<))/src

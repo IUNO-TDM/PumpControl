@@ -12,7 +12,7 @@ PumpDriverFirmata::PumpDriverFirmata() {
 PumpDriverFirmata::~PumpDriverFirmata() {
 }
 
-bool PumpDriverFirmata::Init(const char *config_text_ptr, std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
+bool PumpDriverFirmata::Init(const char *config_text_ptr, const std::map<int, PumpDefinition>& pump_definitions) {
     bool rv = false;
     std::vector<firmata::PortInfo> ports = firmata::FirmSerial::listPorts();
     pump_definitions_ = pump_definitions;

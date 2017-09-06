@@ -18,7 +18,7 @@ class PumpDriverInterface {
         virtual ~PumpDriverInterface() {
         }
 
-        virtual bool Init(const char* config_text_ptr, std::map<int, PumpDefinition> pump_definitions) = 0;
+        virtual bool Init(const char* config_text, const std::map<int, PumpDefinition>& pump_definitions) = 0;
 
         virtual void DeInit() = 0;
 

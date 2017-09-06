@@ -1,12 +1,12 @@
-#ifndef PUMPDRIVERSIMULATION_H
-#define PUMPDRIVERSIMULATION_H
+#ifndef SRC_PUMPDRIVERSHIELD_H_
+#define SRC_PUMPDRIVERSHIELD_H_
 
-#include <pumpdriverinterface.h>
+#include "pumpdriverinterface.h"
 
-class PumpDriverSimulation: public PumpDriverInterface {
+class PumpDriverShield: public PumpDriverInterface {
     public:
-        PumpDriverSimulation();
-        virtual ~PumpDriverSimulation();
+        PumpDriverShield();
+        virtual ~PumpDriverShield();
 
         virtual bool Init(const char* config_text, const std::map<int, PumpDefinition>& pump_definitions);
         virtual void DeInit();

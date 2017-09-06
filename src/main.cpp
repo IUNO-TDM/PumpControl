@@ -2,6 +2,7 @@
 #include "webinterface.h"
 #include "pumpdriversimulation.h"
 #include "pumpdriverfirmata.h"
+#include "pumpdrivershield.h"
 
 #include "easylogging++.h"
 
@@ -18,6 +19,24 @@ bool sig_term_got = false;
 
 void sigTermHandler( int ) {
     sig_term_got = true;
+}
+
+enum DriverType{ SIMULATION, FIRMATA, SHIELD };
+
+istream& operator>> (istream&in, DriverType& driver){
+    string token;
+    in >> token;
+
+    if (token == "simulation"){
+        driver = SIMULATION;
+    } else if (token == "firmata") {
+        driver = FIRMATA;
+    } else if (token == "shield") {
+        driver = SHIELD;
+    } else {
+        throw validation_error (validation_error::invalid_option_value, "invalid driver type");
+    }
+    return in;
 }
 
 int main(int argc, char* argv[]) {
@@ -42,7 +61,7 @@ int main(int argc, char* argv[]) {
     }
 
     {
-        bool simulation;
+        DriverType driver_type;
         int websocket_port;
         string serial_port;
         string config_file;
@@ -50,17 +69,17 @@ int main(int argc, char* argv[]) {
         map<int, PumpDriverInterface::PumpDefinition> pump_definitions;
         string std_conf_location = homeDir + "/pumpcontrol.settings.conf";
         {
-            options_description generic("Generic options");
-            generic.add_options()("version,v", "print version string")("help", "produce help message")("config,c",
-                    value<string>(&config_file)->default_value(std_conf_location),
-                    "name of a file of a configuration.");
+            options_description general_options("General options");
+            general_options.add_options()
+                    ("version,v", "print version string")
+                    ("help", "produce help message")
+                    ("config,c", value<string>(&config_file)->default_value(std_conf_location), "name of a file of a configuration.");
 
-            options_description config("Configuration");
-            config.add_options()("simulation", value<bool>(&simulation)->default_value(false),
-                    "simulation pump driver active")("serialPort",
-                    value<string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"),
-                    "the full serial Port path")("webSocketPort", value<int>(&websocket_port)->default_value(9002),
-                    "The port of the listening WebSocket");
+            options_description config_options("Configuration options");
+            config_options.add_options()
+                    ("driver", value<DriverType>(&driver_type)->default_value(SIMULATION), "the driver to be used, can be [simulation|firmata|shield]")
+                    ("serialPort", value<string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"), "the full serial Port path")
+                    ("webSocketPort", value<int>(&websocket_port)->default_value(9002), "The port of the listening WebSocket");
 
             options_description pump_config("PumpConfiguration");
             string pump_config_str = "pump.configuration.";
@@ -81,13 +100,13 @@ int main(int argc, char* argv[]) {
             }
 
             options_description cmdline_options;
-            cmdline_options.add(generic).add(config);
+            cmdline_options.add(general_options).add(config_options);
 
             options_description config_file_options;
-            config_file_options.add(config).add(pump_config);
+            config_file_options.add(config_options).add(pump_config);
 
             options_description visible("Allowed options");
-            visible.add(generic).add(config);
+            visible.add(general_options).add(config_options);
             variables_map vm;
             store(command_line_parser(argc, argv).options(cmdline_options).run(), vm);
             notify(vm);
@@ -116,15 +135,21 @@ int main(int argc, char* argv[]) {
         {
             string config_string;
             PumpDriverInterface* pump_driver = NULL;
-            if (simulation) {
-                pump_driver = new PumpDriverSimulation();
-                LOG(INFO)<< "The simulation mode is on. Firmata not active!";
-                config_string = "simulation";
-
-            } else {
-                pump_driver = new PumpDriverFirmata();
-                config_string = serial_port;
+            switch(driver_type){
+                case SIMULATION:
+                    LOG(INFO)<< "The simulation mode is set!";
+                    pump_driver = new PumpDriverSimulation();
+                    config_string = "simulation";
+                    break;
+                case FIRMATA:
+                    pump_driver = new PumpDriverFirmata();
+                    config_string = serial_port;
+                    break;
+                case SHIELD:
+                    pump_driver = new PumpDriverShield();
+                    break;
             }
+
             bool success = pump_driver->Init(config_string.c_str(), pump_definitions);
             if(success) {
                 PumpControl pump_control(pump_driver, pump_definitions);

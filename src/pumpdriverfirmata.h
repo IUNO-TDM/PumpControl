@@ -10,7 +10,7 @@ class PumpDriverFirmata: public PumpDriverInterface {
         PumpDriverFirmata();
         virtual ~PumpDriverFirmata();
 
-        virtual bool Init(const char* config_text_ptr, std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions);
+        virtual bool Init(const char* config_text, const std::map<int, PumpDefinition>& pump_definitions);
         virtual void DeInit();
 
         virtual int GetPumpCount();
@@ -20,7 +20,7 @@ class PumpDriverFirmata: public PumpDriverInterface {
         firmata::Firmata<firmata::Base, firmata::I2C>* firmata_ = NULL;
         firmata::FirmSerial* serialio_ = NULL;
 
-        std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions_;
+        std::map<int, PumpDefinition> pump_definitions_;
         std::map<int, bool> pump_is_pwm_;
 };
 
