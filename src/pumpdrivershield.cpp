@@ -3,7 +3,7 @@
 
 using namespace std;
 
-#ifdef OS_raspian
+#ifdef OS_raspbian
 
 PumpDriverShield::PumpDriverShield(){
 }
