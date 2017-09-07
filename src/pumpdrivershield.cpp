@@ -34,7 +34,7 @@ bool PumpDriverShield::Init(const char* config_txt, const map<int, PumpDefinitio
 
     if(ec_initialize >= 0){
         for(size_t i =0; i<pump_count_; i++){
-            unsigned pin = GetPinForPump(i);
+            unsigned pin = pins_[i];
             gpioSetPWMrange(pin, 1000);
             gpioSetPWMfrequency(pin, 20000);
             gpioPWM(pin, 0);
@@ -53,7 +53,7 @@ bool PumpDriverShield::Init(const char* config_txt, const map<int, PumpDefinitio
 void PumpDriverShield::DeInit(){
     if(initialized_){
         for(size_t i =0; i<pump_count_; i++){
-            unsigned pin = GetPinForPump(i);
+            unsigned pin = pins_[i];
             gpioPWM(pin, 0);
             gpioSetMode(pin, PI_INPUT);
         }
