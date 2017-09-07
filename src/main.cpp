@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
     sigfillset(&mask);
     sigdelset(&mask, SIGTERM);
     sigdelset(&mask, SIGTSTP);
-    sigprocmask(SIG_SETMASK, &mask, NULL);
+    pthread_sigmask(SIG_SETMASK, &mask, NULL);
 
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
