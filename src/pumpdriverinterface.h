@@ -2,17 +2,25 @@
 #define PUMPDRIVERINTERFACE_H
 
 #include <map>
+#include <vector>
 
 class PumpDriverInterface {
     public:
+
+        static const size_t lookup_table_entry_count = 10;
+
+        struct LookupTableEntry {
+            float pwm_value;
+            float flow;
+        };
+
         struct PumpDefinition {
-                int output;
                 //the minimum possible flow in ml/s
                 float min_flow;
                 //the maximum possible flow in ml/s
                 float max_flow;
-                //the flow precision in ml/s
-                float flow_precision;
+
+                std::vector<LookupTableEntry> lookup_table;
         };
 
         virtual ~PumpDriverInterface() {

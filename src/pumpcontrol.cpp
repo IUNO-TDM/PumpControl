@@ -147,27 +147,16 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                         int amount = component["amount"].get<int>();
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
 
-                        if(find(separated_pumps.begin(), separated_pumps.end(),pump_number) != separated_pumps.end() ||
-                                pump_definitions_[pump_number].min_flow == pump_definitions_[pump_number].max_flow ||
-                                pump_definitions_[pump_number].flow_precision == 0) {
+                        if(find(separated_pumps.begin(), separated_pumps.end(), pump_number) != separated_pumps.end() ||
+                                pump_definitions_[pump_number].min_flow == pump_definitions_[pump_number].max_flow) {
                             float flow = pump_definitions_[pump_number].min_flow;
                             timeprogram[time][pump_number] = flow;
                             int end_time = time + amount / flow;
                             timeprogram[end_time][pump_number] = 0;
                         } else {
                             float flow = ((float)amount) / max_duration;
-                            int a = flow / pump_definitions_[pump_number].flow_precision;
-                            float difFlow = flow - pump_definitions_[pump_number].flow_precision * (float)a;
-                            float difAmount = difFlow * max_duration;
-                            LOG(DEBUG) <<"cal Flow: " << flow << "; real Flow: " << pump_definitions_[pump_number].flow_precision * a;
-                            LOG(DEBUG) <<"dif Flow: " << difFlow << "; difAmount: " << difAmount;
-                            int xtime = end_time;
-                            if(difAmount > 0.5) {
-                                flow = pump_definitions_[pump_number].flow_precision * (float)(a+1);
-                                xtime = (float)amount / flow + time;
-                            }
                             timeprogram[time][pump_number] = flow;
-                            timeprogram[xtime][pump_number] = 0;
+                            timeprogram[end_time][pump_number] = 0;
                         }
                     }
                     time = end_time;
@@ -237,7 +226,7 @@ void PumpControl::SeparateTooFastIngredients(vector<int> *separated_pumps, map<i
         map<int, float> max_list) {
     int smallest_max_element = GetMinElement(max_list);
     int biggest_min_element = GetMaxElement(min_list);
-    LOG(DEBUG)<< "smallest max " << max_list[smallest_max_element] << "biggest min " << min_list[biggest_min_element];
+    LOG(DEBUG)<< "smallest max " << max_list[smallest_max_element] << ", biggest min " << min_list[biggest_min_element];
     if (max_list[smallest_max_element] < min_list[biggest_min_element]) {
         separated_pumps->push_back(smallest_max_element);
         min_list.erase(smallest_max_element);

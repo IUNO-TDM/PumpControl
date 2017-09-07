@@ -82,21 +82,19 @@ int main(int argc, char* argv[]) {
                     ("webSocketPort", value<int>(&websocket_port)->default_value(9002), "The port of the listening WebSocket");
 
             options_description pump_config("PumpConfiguration");
-            string pump_config_str = "pump.configuration.";
+            string pump_config_str = "pump.";
             for (int i = 1; i <= 8; i++) {
                 pump_definitions[i] = PumpDriverInterface::PumpDefinition();
-                pump_config.add_options()((pump_config_str + to_string(i) + ".output").c_str(),
-                        value<int>(&(pump_definitions[i].output))->default_value(i),
-                        (string("Output Pin for pump number ") + to_string(i)).c_str())(
-                        (pump_config_str + to_string(i) + ".flow_precision").c_str(),
-                        value<float>(&(pump_definitions[i].flow_precision))->default_value((0.00143 - 0.0007) / 128),
-                        (string("Flow Precision for pump number ") + to_string(i)).c_str())(
-                        (pump_config_str + to_string(i) + ".min_flow").c_str(),
-                        value<float>(&(pump_definitions[i].min_flow))->default_value(0.0007),
-                        (string("Min Flow for pump number ") + to_string(i)).c_str())(
-                        (pump_config_str + to_string(i) + ".max_flow").c_str(),
-                        value<float>(&(pump_definitions[i].max_flow))->default_value(0.00143),
-                        (string("Max Flow for pump number ") + to_string(i)).c_str());
+                pump_definitions[i].lookup_table.resize(10);
+                for(size_t j=0; j<10; j++){
+                    pump_config.add_options()
+                            ((pump_config_str + to_string(i) + ".pwm_value." + to_string(j)).c_str(),
+                                    value<float>(&pump_definitions[i].lookup_table[j].pwm_value)->default_value(NAN),
+                                    (string("PWM value ") + to_string(j) + " in a range of 0.0 .. 1.0 for lookup table for pump "+ to_string(i)).c_str())
+                            ((pump_config_str + to_string(i) + ".flow_value." + to_string(j)).c_str(),
+                                    value<float>(&pump_definitions[i].lookup_table[j].flow)->default_value(NAN),
+                                    (string("flow value ") + to_string(j) + " in l/s for lookup table for pump "+ to_string(i)).c_str());
+               }
             }
 
             options_description cmdline_options;
@@ -130,6 +128,30 @@ int main(int argc, char* argv[]) {
                 cout << "Multiple sources example, version 1.0\n";
                 return 0;
             }
+
+            for(auto& pd: pump_definitions){
+                pd.second.min_flow = NAN;
+                pd.second.max_flow = NAN;
+                bool erased = false;
+                do{
+                    erased = false;
+                    for(vector<PumpDriverInterface::LookupTableEntry>::iterator i = pd.second.lookup_table.begin(); i<pd.second.lookup_table.end(); i++){
+                        if(isnan(i->pwm_value) || isnan(i->flow)){
+                            pd.second.lookup_table.erase(i);
+                            erased = true;
+                            break;
+                        }
+                    }
+                }while(erased);
+                for(auto& l: pd.second.lookup_table){
+                    if((l.flow > pd.second.max_flow) || isnan(pd.second.max_flow)){
+                        pd.second.max_flow = l.flow;
+                    }
+                    if((l.flow < pd.second.min_flow) || isnan(pd.second.min_flow)){
+                        pd.second.min_flow = l.flow;
+                    }
+                }
+            }
         }
 
         {
@@ -158,6 +180,8 @@ int main(int argc, char* argv[]) {
                 while(!sig_term_got){
                     sleep(0xffffffff);
                 }
+
+                pump_driver->DeInit();
             }
 
             delete pump_driver;

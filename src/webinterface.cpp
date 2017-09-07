@@ -206,7 +206,6 @@ void WebInterface::HandleGetPumps(HttpResponse& response){
         PumpDriverInterface::PumpDefinition pump_definition = pump_control_->GetPumpDefinition(i);
         pump["minFlow"] = pump_definition.min_flow;
         pump["maxFlow"] = pump_definition.max_flow;
-        pump["flowPrecision"] = pump_definition.flow_precision;
         responseJson[ss.str()]= pump;
     }
     response.Set(200 ,responseJson.dump());
