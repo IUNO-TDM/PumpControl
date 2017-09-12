@@ -15,7 +15,7 @@ using namespace std;
 using namespace nlohmann;
 
 PumpControl::PumpControl(PumpDriverInterface* pump_driver,
-        map<int, PumpDriverInterface::PumpDefinition> pump_definitions) :
+        map<int, PumpDefinition> pump_definitions) :
     pumpdriver_(pump_driver),
     pump_definitions_(pump_definitions) {
 
@@ -345,8 +345,8 @@ size_t PumpControl::GetNumberOfPumps() const {
     return pump_definitions_.size();
 }
 
-PumpDriverInterface::PumpDefinition PumpControl::GetPumpDefinition(size_t pump_number) const {
-    const PumpDriverInterface::PumpDefinition& pump_definition = pump_definitions_.at(pump_number);
+PumpControlInterface::PumpDefinition PumpControl::GetPumpDefinition(size_t pump_number) const {
+    const PumpDefinition& pump_definition = pump_definitions_.at(pump_number);
     return pump_definition;
 }
 
@@ -354,11 +354,27 @@ float PumpControl::SwitchPump(size_t pump_number, bool switch_on) {
     if(pumpcontrol_state_ != PUMP_STATE_SERVICE){
         throw not_in_this_state("not in service state");
     }
-    const PumpDriverInterface::PumpDefinition& pump_definition = GetPumpDefinition(pump_number);
+    const PumpDefinition& pump_definition = GetPumpDefinition(pump_number);
     float new_flow = switch_on ? pump_definition.max_flow : 0;
     SetFlow(pump_number, new_flow);
     return new_flow;
 }
+
+void PumpControl::StartPumpTimed(size_t pump_number, float rel_current, float duration){
+    if(pumpcontrol_state_ != PUMP_STATE_SERVICE){
+        throw not_in_this_state("not in service state");
+    }
+    if((rel_current<0) || (1<rel_current)){
+        throw out_of_range("relative current is out of range, range: [0.0 .. 1.0]");
+    }
+    if((duration<0) || (10<duration)){
+        throw out_of_range("duration is out of range, range: [0.0 .. 10.0]");
+    }
+    pumpdriver_->SetPumpCurrent(pump_number, rel_current);
+    usleep(duration*1000000);
+    pumpdriver_->SetPumpCurrent(pump_number, 0);
+}
+
 
 void PumpControl::EnterServiceMode(){
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
@@ -401,8 +417,28 @@ void PumpControl::TrackAmounts(int pump_number, float flow)
 }
 
 void PumpControl::SetFlow(size_t pump_number, float flow){
-    float effective_flow = pumpdriver_->SetFlow(pump_number, flow);
-    TrackAmounts(pump_number, effective_flow);
+    if((pump_number<1) || (8<pump_number)){
+        throw out_of_range("pump number is out of range");
+    }
+    const PumpDefinition& pump_def = pump_definitions_[pump_number];
+    float pwm = 0;
+    if(flow != 0){
+        if((flow < pump_def.min_flow) || (pump_def.max_flow < flow)){
+            throw out_of_range("flow is out of range for this pump");
+        }
+        pwm = pump_def.lookup_table[0].pwm_value;
+        size_t lookup_entry_count = pump_def.lookup_table.size();
+        for(size_t i=1; i<lookup_entry_count; i++){
+            if((pump_def.lookup_table[i-1].flow < flow) && (flow < pump_def.lookup_table[i].flow)){
+                pwm = (pump_def.lookup_table[i].pwm_value - pump_def.lookup_table[i-1].pwm_value) *
+                        (flow - pump_def.lookup_table[i].flow) /
+                        (pump_def.lookup_table[i].flow - pump_def.lookup_table[i-1].flow);
+                break;
+            }
+        }
+    }
+    pumpdriver_->SetPumpCurrent(pump_number, pwm);
+    TrackAmounts(pump_number, flow);
 }
 
 void PumpControl::SetAllPumpsOff(){

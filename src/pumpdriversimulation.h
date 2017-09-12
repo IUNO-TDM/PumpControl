@@ -8,14 +8,11 @@ class PumpDriverSimulation: public PumpDriverInterface {
         PumpDriverSimulation();
         virtual ~PumpDriverSimulation();
 
-        virtual bool Init(const char* config_text, const std::map<int, PumpDefinition>& pump_definitions);
+        virtual bool Init(const char* config_text);
         virtual void DeInit();
 
         virtual int GetPumpCount();
-        virtual float SetFlow(int pump_number, float flow);
-
-    private:
-        std::map<int, PumpDefinition> pump_definitions_;
+        virtual void SetPumpCurrent(int pump_number, float rel_pump_current);
 };
 
 #endif

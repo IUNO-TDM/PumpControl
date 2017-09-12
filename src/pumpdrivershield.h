@@ -8,16 +8,15 @@ class PumpDriverShield: public PumpDriverInterface {
         PumpDriverShield();
         virtual ~PumpDriverShield();
 
-        virtual bool Init(const char* config_text, const std::map<int, PumpDefinition>& pump_definitions);
+        virtual bool Init(const char* config_text);
         virtual void DeInit();
 
         virtual int GetPumpCount();
-        virtual float SetFlow(int pump_number, float flow);
+        virtual void SetPumpCurrent(int pump_number, float rel_pump_current);
 
     private:
         static unsigned GetPinForPump(size_t pump_number);
 
-        std::map<int, PumpDefinition> pump_definitions_;
         bool initialized_ = false;
 
         static const unsigned pins_[];

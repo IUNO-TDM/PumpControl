@@ -54,6 +54,7 @@ class WebInterface : public PumpControlCallback{
         void HandleEnterServiceMode(HttpResponse& response);
         void HandleLeaveServiceMode(HttpResponse& response);
         void HandleSwitchPump(const std::string& pump_number_string, const std::string& on_off, HttpResponse& response);
+        void HandleStartPumpTimed(const std::string& pump_number_string, const std::string& current_string, const std::string& duration_string, HttpResponse& response);
 
         void SendMessage(const std::string& message);
 

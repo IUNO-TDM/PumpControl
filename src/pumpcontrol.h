@@ -16,7 +16,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
     public:
         PumpControl(PumpDriverInterface* pump_driver,
-                std::map<int, PumpDriverInterface::PumpDefinition> pump_configurations);
+                std::map<int, PumpDefinition> pump_configurations);
 
         virtual ~PumpControl();
 
@@ -28,8 +28,9 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void SetIngredientForPump(int pump_number, const std::string& ingredient);
         virtual void DeleteIngredientForPump(int pump_number);
         virtual size_t GetNumberOfPumps() const;
-        virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_number) const;
+        virtual PumpDefinition GetPumpDefinition(size_t pump_number) const;
         virtual float SwitchPump(size_t pump_number, bool switch_on);
+        virtual void StartPumpTimed(size_t pump_number, float rel_current, float duration);
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string);
         virtual void EnterServiceMode();
         virtual void LeaveServiceMode();
@@ -58,7 +59,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
         PumpDriverInterface* pumpdriver_ = NULL;
-        std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions_;
+        std::map<int, PumpDefinition> pump_definitions_;
 
         PumpControlCallback* callback_client_ = NULL;
         std::mutex callback_client_mutex_;
