@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
         string serial_port;
         string config_file;
         string homeDir = getenv("HOME");
-        map<int, PumpDriverInterface::PumpDefinition> pump_definitions;
+        map<int, PumpControlInterface::PumpDefinition> pump_definitions;
         string std_conf_location = homeDir + "/pumpcontrol.settings.conf";
         {
             options_description general_options("General options");
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
             options_description pump_config("PumpConfiguration");
             string pump_config_str = "pump.";
             for (int i = 1; i <= 8; i++) {
-                pump_definitions[i] = PumpDriverInterface::PumpDefinition();
+                pump_definitions[i] = PumpControlInterface::PumpDefinition();
                 pump_definitions[i].lookup_table.resize(10);
                 for(size_t j=0; j<10; j++){
                     pump_config.add_options()
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
                 bool erased = false;
                 do{
                     erased = false;
-                    for(vector<PumpDriverInterface::LookupTableEntry>::iterator i = pd.second.lookup_table.begin(); i<pd.second.lookup_table.end(); i++){
+                    for(vector<PumpControlInterface::LookupTableEntry>::iterator i = pd.second.lookup_table.begin(); i<pd.second.lookup_table.end(); i++){
                         if(isnan(i->pwm_value) || isnan(i->flow)){
                             pd.second.lookup_table.erase(i);
                             erased = true;
@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
                     break;
             }
 
-            bool success = pump_driver->Init(config_string.c_str(), pump_definitions);
+            bool success = pump_driver->Init(config_string.c_str());
             if(success) {
                 PumpControl pump_control(pump_driver, pump_definitions);
                 WebInterface web_interface(websocket_port, &pump_control);

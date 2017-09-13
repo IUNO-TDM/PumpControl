@@ -25,9 +25,8 @@ PumpDriverShield::PumpDriverShield(){
 PumpDriverShield::~PumpDriverShield(){
 }
 
-bool PumpDriverShield::Init(const char* config_txt, const map<int, PumpDefinition>& pump_definitions) {
+bool PumpDriverShield::Init(const char* config_txt) {
     LOG(INFO)<< "Initializing PumpDriverShield";
-    pump_definitions_ = pump_definitions;
 
     int ec_initialize = gpioInitialise();
     bool rv = false;
@@ -65,24 +64,15 @@ int PumpDriverShield::GetPumpCount(){
     return pump_count_;
 }
 
-float PumpDriverShield::SetFlow(int pump_number, float flow){
-    float rv = 0;
-    if(flow < pump_definitions_[pump_number].min_flow) {
-        unsigned pin = GetPinForPump(pump_number);
-        gpioPWM(pin, 0);
-        rv = 0;
-    } else {
-        unsigned pin = GetPinForPump(pump_number);
-        unsigned pwm_value = (flow - pump_definitions_[pump_number].min_flow) / (pump_definitions_[pump_number].max_flow - pump_definitions_[pump_number].min_flow) * 1000;
-        gpioPWM(pin, pwm_value);
-        rv = flow;
-    }
-    return rv;
+void PumpDriverShield::SetPumpCurrent(int pump_number, float rel_pump_current){
+    unsigned pin = GetPinForPump(pump_number);
+    unsigned pwm = static_cast<unsigned>(1000.0*rel_pump_current);
+    gpioPWM(pin, pwm);
 }
 
 unsigned PumpDriverShield::GetPinForPump(size_t pump_number){
     if((pump_number-1) >= pump_count_){
-        throw out_of_range("pumpnumber out of range");
+        throw out_of_range("pump number out of range");
     }
     return pins_[pump_number-1];
 }
