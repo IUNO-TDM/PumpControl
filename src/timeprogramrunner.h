@@ -1,7 +1,6 @@
 #ifndef TIMEPROGRAMRUNNER_H
 #define TIMEPROGRAMRUNNER_H
 
-#include "pumpdriverinterface.h"
 #include "timeprogramrunnercallback.h"
 
 #include <map>

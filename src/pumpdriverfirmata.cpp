@@ -6,23 +6,19 @@
 
 using namespace std;
 
+const unsigned PumpDriverFirmata::pins_[] = {3,4,5,6,7,8,9,10};
+const bool PumpDriverFirmata::pump_is_pwm_[] = {true, false, true, true, false, false, true, true};
+const size_t PumpDriverFirmata::pump_count_ = sizeof(PumpDriverFirmata::pins_)/sizeof(PumpDriverFirmata::pins_[0]);
+
 PumpDriverFirmata::PumpDriverFirmata() {
 }
 
 PumpDriverFirmata::~PumpDriverFirmata() {
 }
 
-bool PumpDriverFirmata::Init(const char *config_text_ptr, std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
+bool PumpDriverFirmata::Init(const char *config_text_ptr) {
     bool rv = false;
     std::vector<firmata::PortInfo> ports = firmata::FirmSerial::listPorts();
-    pump_definitions_ = pump_definitions;
-    for (auto i : pump_definitions_) {
-        if (i.second.max_flow != i.second.min_flow) {
-            pump_is_pwm_[i.first] = true;
-        } else {
-            pump_is_pwm_[i.first] = false;
-        }
-    }
 
     LOG(INFO)<< "init with config text" << config_text_ptr;
 
@@ -38,23 +34,26 @@ bool PumpDriverFirmata::Init(const char *config_text_ptr, std::map<int, PumpDriv
             firmata_ = new firmata::Firmata<firmata::Base, firmata::I2C>(serialio_);
             firmata_->setSamplingInterval(100);
         }
-        for (auto i : pump_definitions_) {
-            if (pump_is_pwm_[i.first]) {
-                firmata_->pinMode(i.second.output, MODE_PWM);
+        size_t pump_count = GetPumpCount();
+        for (size_t i = 0; i < pump_count; i++) {
+            unsigned pin = pins_[i];
+            if (pump_is_pwm_[i]) {
+                firmata_->pinMode(pin, MODE_PWM);
                 // firmata_pinMode(firmata_, i.second, MODE_PWM);
             } else {
-                firmata_->pinMode(i.second.output, MODE_OUTPUT);
+                firmata_->pinMode(pin, MODE_OUTPUT);
                 // firmata_pinMode(firmata_, i.second, MODE_OUTPUT);
             }
         }
 
         this_thread::sleep_for(chrono::seconds(2));
-        for (auto i : pump_definitions_) {
-            if (pump_is_pwm_[i.first]) {
-                firmata_->analogWrite(i.second.output, 0);
+        for (size_t i = 0; i < pump_count; i++) {
+            unsigned pin = pins_[i];
+            if (pump_is_pwm_[i]) {
+                firmata_->analogWrite(pin, 0);
                 // firmata_analogWrite(firmata_, i.second, 0);
             } else {
-                firmata_->digitalWrite(i.second.output, LOW);
+                firmata_->digitalWrite(pin, LOW);
                 // firmata_digitalWrite(firmata_, i.second, LOW);
             }
         }
@@ -70,12 +69,14 @@ bool PumpDriverFirmata::Init(const char *config_text_ptr, std::map<int, PumpDriv
 
 void PumpDriverFirmata::DeInit() {
     try {
-        for (auto i : pump_definitions_) {
-            if (pump_is_pwm_[i.first]) {
-                firmata_->analogWrite(i.second.output, 0);
+        size_t pump_count = GetPumpCount();
+        for (size_t i = 0; i < pump_count; i++) {
+            unsigned pin = pins_[i];
+            if (pump_is_pwm_[i]) {
+                firmata_->analogWrite(pin, 0);
                 // firmata_analogWrite(firmata_, i.second, 0);
             } else {
-                firmata_->digitalWrite(i.second.output, LOW);
+                firmata_->digitalWrite(pin, LOW);
                 // firmata_digitalWrite(firmata_, i.second, LOW);
             }
         }
@@ -85,25 +86,31 @@ void PumpDriverFirmata::DeInit() {
 }
 
 int PumpDriverFirmata::GetPumpCount() {
-    return pump_definitions_.size();
+    return pump_count_;
 }
 
-float PumpDriverFirmata::SetFlow(int pump_number, float flow) {
-    LOG(INFO)<< "setPump " << pump_number << " : "<< flow;
-    float rv = 0;
-    if(pump_is_pwm_[pump_number]) {
-        if(flow < pump_definitions_[pump_number].min_flow) {
-            firmata_->analogWrite(pump_definitions_[pump_number].output, 0);
-            rv = 0;
-        } else {
-            int pwm_value = (flow - pump_definitions_[pump_number].min_flow) / (pump_definitions_[pump_number].max_flow - pump_definitions_[pump_number].min_flow) * 128 + 127;
-            firmata_->analogWrite(pump_definitions_[pump_number].output, pwm_value);
-            rv = flow;
-        }
+void PumpDriverFirmata::SetPumpCurrent(int pump_number, float rel_pump_current) {
+    LOG(INFO)<< "SetPumpCurrent " << pump_number << " : "<< rel_pump_current;
+    unsigned pin = GetPinForPump(pump_number);
+    if(IsPumpPwm(pump_number)) {
+        unsigned pwm = static_cast<unsigned>(255.0 * rel_pump_current);
+        firmata_->analogWrite(pin, pwm);
     } else {
-        firmata_->digitalWrite(pump_definitions_[pump_number].output, (flow>0) ? HIGH : LOW);
-        rv = (flow>0) ? pump_definitions_[pump_number].max_flow : 0;
+        firmata_->digitalWrite(pin, (rel_pump_current>0) ? HIGH : LOW);
     }
-    return rv;
+}
+
+unsigned PumpDriverFirmata::GetPinForPump(size_t pump_number){
+    if(((pump_number-1) >= pump_count_) || (pump_number < 1)){
+        throw out_of_range("pump number out of range");
+    }
+    return pins_[pump_number-1];
+}
+
+bool PumpDriverFirmata::IsPumpPwm(size_t pump_number){
+    if(((pump_number-1) >= pump_count_) || (pump_number < 1)){
+        throw out_of_range("pump number out of range");
+    }
+    return pump_is_pwm_[pump_number-1];
 }
 

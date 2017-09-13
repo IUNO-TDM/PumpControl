@@ -9,22 +9,19 @@ PumpDriverSimulation::PumpDriverSimulation() {
 PumpDriverSimulation::~PumpDriverSimulation() {
 }
 
-bool PumpDriverSimulation::Init(const char *config_text_ptr,
-        std::map<int, PumpDriverInterface::PumpDefinition> pump_definitions) {
-    LOG(INFO)<< "init with config text" << config_text_ptr;
-    pump_definitions_ = pump_definitions;
+bool PumpDriverSimulation::Init(const char*) {
+    LOG(INFO)<< "Init";
     return true;
 }
 
 void PumpDriverSimulation::DeInit() {
-    LOG(INFO)<< "deInit";
+    LOG(INFO)<< "DeInit";
 }
 
 int PumpDriverSimulation::GetPumpCount() {
-    return pump_definitions_.size();
+    return 8;
 }
 
-float PumpDriverSimulation::SetFlow(int pump_number, float flow) {
-    LOG(INFO)<< "setPump " << pump_number << " : "<< flow;
-    return flow;
+void PumpDriverSimulation::SetPumpCurrent(int pump_number, float rel_pump_current) {
+    LOG(INFO)<< "SetPumpCurrent " << pump_number << " : "<< rel_pump_current;
 }

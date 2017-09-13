@@ -14,6 +14,22 @@ class PumpControlInterface {
               explicit not_in_this_state (const std::string& what_arg) : std::logic_error(what_arg){}
         };
 
+        static const size_t lookup_table_entry_count = 10;
+
+        struct LookupTableEntry {
+            float pwm_value;
+            float flow;
+        };
+
+        struct PumpDefinition {
+                //the minimum possible flow in ml/s
+                float min_flow;
+                //the maximum possible flow in ml/s
+                float max_flow;
+
+                std::vector<LookupTableEntry> lookup_table;
+        };
+
         enum PumpControlState {
             PUMP_STATE_UNINITIALIZED = 0,
             PUMP_STATE_IDLE = 1,
@@ -55,8 +71,9 @@ class PumpControlInterface {
         virtual void SetIngredientForPump(int pump_number, const std::string& ingredient) = 0;
         virtual void DeleteIngredientForPump(int pump_number) = 0;
         virtual size_t GetNumberOfPumps() const = 0;
-        virtual PumpDriverInterface::PumpDefinition GetPumpDefinition(size_t pump_number) const = 0;
+        virtual PumpDefinition GetPumpDefinition(size_t pump_number) const = 0;
         virtual float SwitchPump(size_t pump_number, bool switch_on) = 0;
+        virtual void StartPumpTimed(size_t pump_number, float rel_current, float duration) = 0;
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string) = 0;
         virtual void EnterServiceMode() = 0;
         virtual void LeaveServiceMode() = 0;

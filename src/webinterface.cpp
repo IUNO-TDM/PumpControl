@@ -142,6 +142,8 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
         HandleGetPumps(response);
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/pumps\\/([0-9]{1,2})\\/?:(true|false)$"))) {
         HandleSwitchPump(what[1].str(), what[2].str(), response);
+    } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/start-timed\\/([0-9]{1,2})\\/current\\/(-?[0-9]+(\\.[0-9]+)?)\\/duration\\/(-?[0-9]+(\\.[0-9]+)?)\\/?:.*"))) {
+        HandleStartPumpTimed(what[1].str(), what[2].str(), what[4].str(), response);
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/?:true$"))) {
         HandleEnterServiceMode(response);
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/?:false$"))) {
@@ -159,6 +161,8 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/pumps\\/([0-9]{1,2})\\/?:.*$"))) {
         response.Set(404, "On/off (body) is invalid or empty");
     } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/service\\/pumps\\/([0-9]{1,2})\\/?:.*$"))) {
+        response.Set(400, "Wrong method for this URL");
+    } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/service\\/start-timed\\/([0-9]{1,2})\\/current\\/(-?[0-9]+(\\.[0-9]+)?)\\/duration\\/(-?[0-9]+(\\.[0-9]+)?)\\/?:.*"))) {
         response.Set(400, "Wrong method for this URL");
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/?:.*$"))) {
         response.Set(404, "On/off (body) is invalid or empty");
@@ -203,10 +207,9 @@ void WebInterface::HandleGetPumps(HttpResponse& response){
         stringstream ss;
         ss << i;
         json pump = json::object();
-        PumpDriverInterface::PumpDefinition pump_definition = pump_control_->GetPumpDefinition(i);
+        PumpControlInterface::PumpDefinition pump_definition = pump_control_->GetPumpDefinition(i);
         pump["minFlow"] = pump_definition.min_flow;
         pump["maxFlow"] = pump_definition.max_flow;
-        pump["flowPrecision"] = pump_definition.flow_precision;
         responseJson[ss.str()]= pump;
     }
     response.Set(200 ,responseJson.dump());
@@ -310,6 +313,25 @@ void WebInterface::HandleSwitchPump(const string& pump_number_string, const stri
         response.Set(400, response.response_message = "PumpControl not in Service mode");
     }
 }
+
+void WebInterface::HandleStartPumpTimed(const string& pump_number_string, const string& current_string, const string& duration_string, HttpResponse& response){
+    LOG(DEBUG)<< "Starting pump " << pump_number_string << " with current " << current_string << " for " << duration_string << "s.";
+    int pump_number = stoi(pump_number_string);
+    float current = stof(current_string);
+    float duration = stof(duration_string);
+    try {
+        pump_control_->StartPumpTimed(pump_number, current, duration);
+        response.Set(200, "SUCCESS");
+        LOG(DEBUG)<< "Started pump " << pump_number_string << " successfully with current " << current_string << " for " << duration_string << "s.";
+    } catch(out_of_range&) {
+        LOG(DEBUG)<< "Pump number " << pump_number << " can't be started, some parameter is out of range";
+        response.Set(400, "Pump can't be started, some parameter is out of range");
+    } catch(PumpControlInterface::not_in_this_state&) {
+        LOG(DEBUG)<< "Pump control is not in service mode";
+        response.Set(400, response.response_message = "PumpControl not in Service mode");
+    }
+}
+
 
 void WebInterface::SendMessage(const string& message) {
     lock_guard<mutex> guard(connection_mutex_);
