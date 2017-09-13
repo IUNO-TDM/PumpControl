@@ -27,8 +27,8 @@ void CryptoHelpers::Unbase64(const string& in, CryptoBuffer& out){
     bmem = BIO_push(b64, bmem);
 
     BIO_set_flags(bmem, BIO_FLAGS_BASE64_NO_NL);
-    BIO_read(bmem, buffer, in.length());
-    out.set(buffer, bmem->num_read);
+    int read_rc=BIO_read(bmem, buffer, in.length());
+    out.set(buffer, read_rc);
 
     BIO_free_all(bmem);
     delete[] buffer;
