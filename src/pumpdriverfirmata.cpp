@@ -39,10 +39,8 @@ bool PumpDriverFirmata::Init(const char *config_text_ptr) {
             unsigned pin = pins_[i];
             if (pump_is_pwm_[i]) {
                 firmata_->pinMode(pin, MODE_PWM);
-                // firmata_pinMode(firmata_, i.second, MODE_PWM);
             } else {
                 firmata_->pinMode(pin, MODE_OUTPUT);
-                // firmata_pinMode(firmata_, i.second, MODE_OUTPUT);
             }
         }
 
@@ -51,10 +49,8 @@ bool PumpDriverFirmata::Init(const char *config_text_ptr) {
             unsigned pin = pins_[i];
             if (pump_is_pwm_[i]) {
                 firmata_->analogWrite(pin, 0);
-                // firmata_analogWrite(firmata_, i.second, 0);
             } else {
                 firmata_->digitalWrite(pin, LOW);
-                // firmata_digitalWrite(firmata_, i.second, LOW);
             }
         }
         rv = true;
@@ -74,10 +70,8 @@ void PumpDriverFirmata::DeInit() {
             unsigned pin = pins_[i];
             if (pump_is_pwm_[i]) {
                 firmata_->analogWrite(pin, 0);
-                // firmata_analogWrite(firmata_, i.second, 0);
             } else {
                 firmata_->digitalWrite(pin, LOW);
-                // firmata_digitalWrite(firmata_, i.second, LOW);
             }
         }
     } catch (const std::exception& ex) {

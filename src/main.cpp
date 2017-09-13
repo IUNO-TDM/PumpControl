@@ -62,8 +62,8 @@ int main(int argc, char* argv[]) {
 
     {
         DriverType driver_type;
-        int websocket_port;
-        string serial_port;
+        int tcp_port;
+        string driver_config_string;
         string config_file;
         string homeDir = getenv("HOME");
         map<int, PumpControlInterface::PumpDefinition> pump_definitions;
@@ -77,9 +77,9 @@ int main(int argc, char* argv[]) {
 
             options_description config_options("Configuration options");
             config_options.add_options()
-                    ("driver", value<DriverType>(&driver_type)->default_value(SIMULATION), "the driver to be used, can be [simulation|firmata|shield]")
-                    ("serialPort", value<string>(&serial_port)->default_value("/dev/tty.usbserial-A104WO1O"), "the full serial Port path")
-                    ("webSocketPort", value<int>(&websocket_port)->default_value(9002), "The port of the listening WebSocket");
+                    ("driver", value<DriverType>(&driver_type)->default_value(SIMULATION), "the driver to be used, one of [simulation|firmata|shield]")
+                    ("driver-config", value<string>(&driver_config_string)->default_value(""), "a configuration string specific to the driver")
+                    ("tcp-port", value<int>(&tcp_port)->default_value(9002), "the port the web interface is listening at");
 
             options_description pump_config("PumpConfiguration");
             string pump_config_str = "pump.";
@@ -155,27 +155,24 @@ int main(int argc, char* argv[]) {
         }
 
         {
-            string config_string;
             PumpDriverInterface* pump_driver = NULL;
             switch(driver_type){
                 case SIMULATION:
                     LOG(INFO)<< "The simulation mode is set!";
                     pump_driver = new PumpDriverSimulation();
-                    config_string = "simulation";
                     break;
                 case FIRMATA:
                     pump_driver = new PumpDriverFirmata();
-                    config_string = serial_port;
-                    break;
+                     break;
                 case SHIELD:
                     pump_driver = new PumpDriverShield();
                     break;
             }
 
-            bool success = pump_driver->Init(config_string.c_str());
+            bool success = pump_driver->Init(driver_config_string.c_str());
             if(success) {
                 PumpControl pump_control(pump_driver, pump_definitions);
-                WebInterface web_interface(websocket_port, &pump_control);
+                WebInterface web_interface(tcp_port, &pump_control);
 
                 while(!sig_term_got){
                     sleep(0xffffffff);
