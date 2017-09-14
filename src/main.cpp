@@ -109,16 +109,6 @@ int main(int argc, char* argv[]) {
             store(command_line_parser(argc, argv).options(cmdline_options).run(), vm);
             notify(vm);
 
-            ifstream ifs(config_file.c_str());
-            if (!ifs) {
-                LOG(INFO)<< "Can not open config file: " << config_file;
-            }
-            else
-            {
-                store(parse_config_file(ifs, config_file_options), vm);
-                notify(vm);
-            }
-
             if (vm.count("help")) {
                 cout << visible << "\n";
                 return 0;
@@ -128,6 +118,15 @@ int main(int argc, char* argv[]) {
                 cout << "Multiple sources example, version 1.0\n";
                 return 0;
             }
+
+            ifstream ifs(config_file.c_str());
+            if (!ifs) {
+                LOG(ERROR)<< "Can not open config file: '" << config_file << "'.";
+                return -1;
+            }
+
+            store(parse_config_file(ifs, config_file_options), vm);
+            notify(vm);
 
             for(auto& pd: pump_definitions){
                 pd.second.min_flow = NAN;
