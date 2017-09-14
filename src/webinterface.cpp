@@ -12,7 +12,7 @@ using namespace std;
 using namespace nlohmann;
 
 WebInterface::WebInterface(int port, PumpControlInterface* pump_control) {
-    LOG(DEBUG) << "Webinterface constructor, starting to listen on port " << port_;
+    LOG(DEBUG) << "Webinterface constructor, starting to listen on port " << port;
 
     port_ = port;
     pump_control_ = pump_control;
