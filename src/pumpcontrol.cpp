@@ -73,6 +73,7 @@ void PumpControl::StartProgram(unsigned long product_id, const string& in) {
         LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
         throw invalid_argument(ex.what());
     }
+
     CheckIngredients(j["recipe"]);
     int max_time = CreateTimeProgram(j["recipe"], timeprogram_);
     if (max_time > 0) {
@@ -247,8 +248,12 @@ void PumpControl::SeparateTooFastIngredients(vector<int>& separated_pumps, map<i
     LOG(DEBUG)<< "smallest max " << max_list[smallest_max_element] << ", biggest min " << min_list[biggest_min_element];
     if (max_list[smallest_max_element] < min_list[biggest_min_element]) {
         separated_pumps.push_back(smallest_max_element);
-        min_list.erase(smallest_max_element);
-        max_list.erase(smallest_max_element);
+        if(1 != min_list.erase(smallest_max_element)){
+            throw invalid_argument("internal error: Could not erase element from min_list");
+        }
+        if(1 != max_list.erase(smallest_max_element)){
+            throw invalid_argument("internal error: Could not erase element from max_list");
+        }
         SeparateTooFastIngredients(separated_pumps, min_list, max_list);
     }
 }
