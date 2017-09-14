@@ -431,8 +431,9 @@ void PumpControl::SetFlow(size_t pump_number, float flow){
         for(size_t i=1; i<lookup_entry_count; i++){
             if((pump_def.lookup_table[i-1].flow < flow) && (flow <= pump_def.lookup_table[i].flow)){
                 pwm = (pump_def.lookup_table[i].pwm_value - pump_def.lookup_table[i-1].pwm_value) *
-                        (flow - pump_def.lookup_table[i].flow) /
-                        (pump_def.lookup_table[i].flow - pump_def.lookup_table[i-1].flow);
+                        (flow - pump_def.lookup_table[i-1].flow) /
+                        (pump_def.lookup_table[i].flow - pump_def.lookup_table[i-1].flow) +
+                        pump_def.lookup_table[i-1].pwm_value;
                 break;
             }
         }
