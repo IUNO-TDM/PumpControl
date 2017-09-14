@@ -192,8 +192,8 @@ void WebInterface::HandleStartProgram(const string& product_id, const string& pr
         }
     } catch(PumpControlInterface::not_in_this_state&) {
         response.Set(500, "Wrong state for starting a program");
-    } catch(out_of_range&) {
-        response.Set(500, "Program ingredients error");
+    } catch(out_of_range& e) {
+        response.Set(500, e.what());
     } catch(logic_error&) {
         response.Set(500, "Program parse error");
     }
