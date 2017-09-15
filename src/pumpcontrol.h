@@ -82,13 +82,14 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
                 { 7, "Cola" },
                 { 8, "Fanta" } };
 
+        void CheckIngredients(nlohmann::json j);
         int CreateTimeProgram(nlohmann::json j, TimeProgramRunner::TimeProgram &timeprogram);
 
         void TrackAmounts(int pump_number, float flow);
 
-        int GetMaxElement(std::map<int, float> list);
-        int GetMinElement(std::map<int, float> list);
-        void SeparateTooFastIngredients(std::vector<int> *separated_pumps, std::map<int, float> min_list,
+        int GetMaxElement(const std::map<int, float>& list);
+        int GetMinElement(const std::map<int, float>& list);
+        void SeparateTooFastIngredients(std::vector<int>& separated_pumps, std::map<int, float> min_list,
                 std::map<int, float> max_list);
 
         const int warn_level = 100;

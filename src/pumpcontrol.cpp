@@ -73,6 +73,8 @@ void PumpControl::StartProgram(unsigned long product_id, const string& in) {
         LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
         throw invalid_argument(ex.what());
     }
+
+    CheckIngredients(j["recipe"]);
     int max_time = CreateTimeProgram(j["recipe"], timeprogram_);
     if (max_time > 0) {
         SetPumpControlState(PUMP_STATE_ACTIVE);
@@ -80,6 +82,23 @@ void PumpControl::StartProgram(unsigned long product_id, const string& in) {
         timeprogramrunner_->StartProgram("no order name", timeprogram_);
     }
 }
+
+void PumpControl::CheckIngredients(nlohmann::json j) {
+    LOG(DEBUG)<< "Checking for availability of the ingredients required by the program.";
+    for(auto line: j["lines"].get<vector<json>>()) {
+        for(auto component: line["components"].get<vector<json>>()) {
+            string ingredient = component["ingredient"].get<string>();
+            if(pump_ingredients_bimap_.right.find(ingredient) == pump_ingredients_bimap_.right.end()) {
+                stringstream ss;
+                ss << "Program requires ingredient " << ingredient << " which isn't available.";
+                LOG(ERROR) << ss.str();
+                throw out_of_range(ss.str());
+            }
+        }
+    }
+    LOG(DEBUG)<< "Successfully checked that all required ingredients are available.";
+}
+
 
 int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timeprogram) {
     LOG(DEBUG)<< "createTimeProgram";
@@ -135,7 +154,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                     }
 
                     vector<int> separated_pumps;
-                    SeparateTooFastIngredients(&separated_pumps,min_time_map, max_time_map);
+                    SeparateTooFastIngredients(separated_pumps, min_time_map, max_time_map);
                     LOG(DEBUG) << "separated_pumps:";
                     for(auto i : separated_pumps) {
                         LOG(DEBUG) << i;
@@ -198,8 +217,8 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
     return time;
 }
 
-int PumpControl::GetMaxElement(map<int, float> list) {
-    float max = FLT_MIN;
+int PumpControl::GetMaxElement(const map<int, float>& list) {
+    float max = -FLT_MAX;
     int rv = 0;
     for (auto it : list) {
         if (it.second > max) {
@@ -210,7 +229,7 @@ int PumpControl::GetMaxElement(map<int, float> list) {
     return rv;
 }
 
-int PumpControl::GetMinElement(map<int, float> list) {
+int PumpControl::GetMinElement(const map<int, float>& list) {
     float max = FLT_MAX;
     int rv = 0;
     for (auto it : list) {
@@ -222,15 +241,19 @@ int PumpControl::GetMinElement(map<int, float> list) {
     return rv;
 }
 
-void PumpControl::SeparateTooFastIngredients(vector<int> *separated_pumps, map<int, float> min_list,
+void PumpControl::SeparateTooFastIngredients(vector<int>& separated_pumps, map<int, float> min_list,
         map<int, float> max_list) {
     int smallest_max_element = GetMinElement(max_list);
     int biggest_min_element = GetMaxElement(min_list);
     LOG(DEBUG)<< "smallest max " << max_list[smallest_max_element] << ", biggest min " << min_list[biggest_min_element];
     if (max_list[smallest_max_element] < min_list[biggest_min_element]) {
-        separated_pumps->push_back(smallest_max_element);
-        min_list.erase(smallest_max_element);
-        max_list.erase(smallest_max_element);
+        separated_pumps.push_back(smallest_max_element);
+        if(1 != min_list.erase(smallest_max_element)){
+            throw invalid_argument("internal error: Could not erase element from min_list");
+        }
+        if(1 != max_list.erase(smallest_max_element)){
+            throw invalid_argument("internal error: Could not erase element from max_list");
+        }
         SeparateTooFastIngredients(separated_pumps, min_list, max_list);
     }
 }
@@ -367,8 +390,8 @@ void PumpControl::StartPumpTimed(size_t pump_number, float rel_current, float du
     if((rel_current<0) || (1<rel_current)){
         throw out_of_range("relative current is out of range, range: [0.0 .. 1.0]");
     }
-    if((duration<0) || (10<duration)){
-        throw out_of_range("duration is out of range, range: [0.0 .. 10.0]");
+    if((duration<0) || (100<duration)){
+        throw out_of_range("duration is out of range, range: [0.0 .. 100.0]");
     }
     pumpdriver_->SetPumpCurrent(pump_number, rel_current);
     usleep(duration*1000000);
@@ -429,10 +452,11 @@ void PumpControl::SetFlow(size_t pump_number, float flow){
         pwm = pump_def.lookup_table[0].pwm_value;
         size_t lookup_entry_count = pump_def.lookup_table.size();
         for(size_t i=1; i<lookup_entry_count; i++){
-            if((pump_def.lookup_table[i-1].flow < flow) && (flow < pump_def.lookup_table[i].flow)){
+            if((pump_def.lookup_table[i-1].flow < flow) && (flow <= pump_def.lookup_table[i].flow)){
                 pwm = (pump_def.lookup_table[i].pwm_value - pump_def.lookup_table[i-1].pwm_value) *
-                        (flow - pump_def.lookup_table[i].flow) /
-                        (pump_def.lookup_table[i].flow - pump_def.lookup_table[i-1].flow);
+                        (flow - pump_def.lookup_table[i-1].flow) /
+                        (pump_def.lookup_table[i].flow - pump_def.lookup_table[i-1].flow) +
+                        pump_def.lookup_table[i-1].pwm_value;
                 break;
             }
         }

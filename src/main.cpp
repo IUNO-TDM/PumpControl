@@ -109,16 +109,6 @@ int main(int argc, char* argv[]) {
             store(command_line_parser(argc, argv).options(cmdline_options).run(), vm);
             notify(vm);
 
-            ifstream ifs(config_file.c_str());
-            if (!ifs) {
-                LOG(INFO)<< "Can not open config file: " << config_file;
-            }
-            else
-            {
-                store(parse_config_file(ifs, config_file_options), vm);
-                notify(vm);
-            }
-
             if (vm.count("help")) {
                 cout << visible << "\n";
                 return 0;
@@ -128,6 +118,15 @@ int main(int argc, char* argv[]) {
                 cout << "Multiple sources example, version 1.0\n";
                 return 0;
             }
+
+            ifstream ifs(config_file.c_str());
+            if (!ifs) {
+                LOG(ERROR)<< "Can not open config file: '" << config_file << "'.";
+                return -1;
+            }
+
+            store(parse_config_file(ifs, config_file_options), vm);
+            notify(vm);
 
             for(auto& pd: pump_definitions){
                 pd.second.min_flow = NAN;
@@ -169,18 +168,27 @@ int main(int argc, char* argv[]) {
                     break;
             }
 
-            bool success = pump_driver->Init(driver_config_string.c_str());
-            if(success) {
-                PumpControl pump_control(pump_driver, pump_definitions);
-                WebInterface web_interface(tcp_port, &pump_control);
+            bool pump_driver_initialized = false;
+            try{
+                pump_driver_initialized= pump_driver->Init(driver_config_string.c_str());
+                if(pump_driver_initialized) {
+                    PumpControl pump_control(pump_driver, pump_definitions);
+                    WebInterface web_interface(tcp_port, &pump_control);
 
-                while(!sig_term_got){
-                    sleep(0xffffffff);
+                    while(!sig_term_got){
+                        sleep(0xffffffff);
+                    }
+
                 }
-
-                pump_driver->DeInit();
+            }catch(exception& e){
+                LOG(ERROR) << "Caught exception: '" << e.what() << "'.";
+            }catch(...){
+                LOG(ERROR) << "Caught exception of unknown type, shutting down.";
             }
 
+            if(pump_driver_initialized){
+                pump_driver->DeInit();
+            }
             delete pump_driver;
         }
     }
