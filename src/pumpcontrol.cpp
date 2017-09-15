@@ -445,16 +445,24 @@ void PumpControl::SetFlow(size_t pump_number, float flow){
     }
     const PumpDefinition& pump_def = pump_definitions_[pump_number];
     float pwm = 0;
-    if(flow != 0){
-        if((flow < pump_def.min_flow) || (pump_def.max_flow < flow)){
-            throw out_of_range("flow is out of range for this pump");
+    float correctedFlow = flow;
+    if(correctedFlow != 0){
+        if(correctedFlow < 0){
+            throw out_of_range("flow is negative");
         }
+
+        if(correctedFlow < pump_def.min_flow){
+            correctedFlow = pump_def.min_flow;
+        }else if(correctedFlow > pump_def.max_flow){
+            correctedFlow = pump_def.max_flow;
+        }
+        
         pwm = pump_def.lookup_table[0].pwm_value;
         size_t lookup_entry_count = pump_def.lookup_table.size();
         for(size_t i=1; i<lookup_entry_count; i++){
-            if((pump_def.lookup_table[i-1].flow < flow) && (flow <= pump_def.lookup_table[i].flow)){
+            if((pump_def.lookup_table[i-1].flow < correctedFlow) && (correctedFlow <= pump_def.lookup_table[i].flow)){
                 pwm = (pump_def.lookup_table[i].pwm_value - pump_def.lookup_table[i-1].pwm_value) *
-                        (flow - pump_def.lookup_table[i-1].flow) /
+                        (correctedFlow - pump_def.lookup_table[i-1].flow) /
                         (pump_def.lookup_table[i].flow - pump_def.lookup_table[i-1].flow) +
                         pump_def.lookup_table[i-1].pwm_value;
                 break;
@@ -462,7 +470,7 @@ void PumpControl::SetFlow(size_t pump_number, float flow){
         }
     }
     pumpdriver_->SetPumpCurrent(pump_number, pwm);
-    TrackAmounts(pump_number, flow);
+    TrackAmounts(pump_number, correctedFlow);
 }
 
 void PumpControl::SetAllPumpsOff(){
