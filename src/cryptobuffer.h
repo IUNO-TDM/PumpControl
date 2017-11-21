@@ -28,9 +28,15 @@ class CryptoBuffer{
             }
         }
 
+        const char* c_str() const {
+            return reinterpret_cast<const char*>(buffer_);
+        }
+
         size_t size() const {
             return size_;
         }
+
+        void clear();
 
         void set(const unsigned char* buffer, size_t size);
 

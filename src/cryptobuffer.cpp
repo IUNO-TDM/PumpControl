@@ -14,10 +14,15 @@ CryptoBuffer::CryptoBuffer(size_t size){
 }
 
 CryptoBuffer::~CryptoBuffer(){
+    clear();
+}
+
+void CryptoBuffer::clear() {
     if(size_){
         memset(buffer_, 0, size_+1);
         delete[] buffer_;
         buffer_ = NULL;
+        size_ = 0;
     }
 }
 

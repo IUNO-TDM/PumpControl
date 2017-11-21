@@ -39,7 +39,7 @@ INC_DIRS += /usr/local/opt/openssl/include
 INC_DIRS += /usr/local/Cellar/boost/1.63.0/include/
 else
 # check for Linux and run other commands
-LDFLAGS := -g -lcrypto -lboost_system -lboost_regex -lboost_program_options -lpthread -lwibucm $(GPIO_LIB_FLAG)
+LDFLAGS := -g -lcrypto -lboost_system -lboost_regex -lboost_program_options -lpthread -lwibucm $(GPIO_LIB_FLAG) -Wl,-E
 endif
 
 
@@ -53,6 +53,7 @@ CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall -g -DOS_$(OS_ID) -DELPP_THREA
 	curl  -L $(shell cat $<) --output $(dir $<)/downloaded/$(basename $(notdir $<))/src/$(notdir $(shell cat $<))
 	touch $@
 
+all: $(BUILD_DIR)/$(TARGET_EXEC)
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	@echo SRC Dirs: $(SRC_DIRS)
@@ -68,7 +69,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp $(DOWNLOADED_FILES)
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-.PHONY: clean
+.PHONY: clean all
 
 clean:
 	$(RM) -r $(BUILD_DIR)

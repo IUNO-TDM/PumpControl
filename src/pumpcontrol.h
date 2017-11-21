@@ -51,7 +51,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
                 std::chrono::system_clock::time_point start_time;
         };
 
-        static void DecryptProgram(unsigned long product_id, const std::string& in, std::string& out);
+        static void DecryptProgram(unsigned long product_id, const std::string& in, CryptoBuffer& out);
 
         static void DecryptPrivate(const CryptoBuffer& in, CryptoBuffer& out);
 
