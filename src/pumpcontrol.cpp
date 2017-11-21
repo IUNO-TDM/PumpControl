@@ -1,6 +1,8 @@
 #include "pumpcontrol.h"
 #include "pumpcontrolcallback.h"
+#ifndef NO_ENCRYPTION
 #include "cryptohelpers.h"
+#endif
 
 #include "easylogging++.h"
 
@@ -66,11 +68,12 @@ void PumpControl::StartProgram(unsigned long product_id, const string& in) {
     int max_time = 0;
     { // scope for minimized life time of recipe_json
         json recipe_json;
+#ifndef NO_ENCRYPTION
         { // scope for minimized lifetime of recipe_buffer
             CryptoBuffer recipe_buffer;
-            //DecryptProgram(product_id, in, recipe_buffer);
+            DecryptProgram(product_id, in, recipe_buffer);
             try {
-                recipe_json = json::parse(in /*recipe_buffer.c_str()*/);
+                recipe_json = json::parse(string(recipe_buffer.c_str()));
                 recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
                 LOG(DEBUG)<< "Got a valid json string.";
             } catch (logic_error& ex) {
@@ -79,6 +82,17 @@ void PumpControl::StartProgram(unsigned long product_id, const string& in) {
                 throw invalid_argument(ex.what());
             }
         }
+#else
+        {
+            try {
+                recipe_json = json::parse(in);
+                LOG(DEBUG)<< "Got a valid json string.";
+            } catch (logic_error& ex) {
+                LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
+                throw invalid_argument(ex.what());
+            }
+        }
+#endif
         CheckIngredients(recipe_json["recipe"]);
         max_time = CreateTimeProgram(recipe_json["recipe"], timeprogram_);
     }
@@ -486,6 +500,7 @@ void PumpControl::SetAllPumpsOff(){
     }
 }
 
+#ifndef NO_ENCRYPTION
 void PumpControl::DecryptProgram(unsigned long product_id, const string& in, CryptoBuffer& out){
     ERR_load_crypto_strings();
     OpenSSL_add_all_algorithms();
@@ -502,6 +517,7 @@ void PumpControl::DecryptProgram(unsigned long product_id, const string& in, Cry
     EVP_cleanup();
     ERR_free_strings();
 }
+#endif
 
 
 
