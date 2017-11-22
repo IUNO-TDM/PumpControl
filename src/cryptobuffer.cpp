@@ -31,6 +31,7 @@ void CryptoBuffer::set(const unsigned char* buffer, size_t size){
         memset(buffer_, 0, size_+1);
         delete[] buffer_;
         buffer_ = NULL;
+        size_ = 0;
     }
 
     if(size){
