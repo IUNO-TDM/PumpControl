@@ -9,7 +9,11 @@ class CryptoBuffer{
 
         CryptoBuffer(size_t size);
 
+        CryptoBuffer(const CryptoBuffer& other);
+
         ~CryptoBuffer();
+
+        CryptoBuffer& operator = (const CryptoBuffer& other);
 
         operator const unsigned char* () const {
             return buffer_;

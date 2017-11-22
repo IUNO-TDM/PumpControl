@@ -13,8 +13,17 @@ CryptoBuffer::CryptoBuffer(size_t size){
     memset(buffer_, 0, size_+1);
 }
 
+CryptoBuffer::CryptoBuffer(const CryptoBuffer& other): buffer_(NULL), size_(0){
+	set(other.buffer_, other.size_);
+}
+
 CryptoBuffer::~CryptoBuffer(){
     clear();
+}
+
+CryptoBuffer& CryptoBuffer::operator = (const CryptoBuffer& other){
+	set(other.buffer_, other.size_);
+	return *this;
 }
 
 void CryptoBuffer::clear() {
