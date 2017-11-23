@@ -21,7 +21,13 @@ void sigTermHandler( int ) {
     sig_term_got = true;
 }
 
-enum DriverType{ SIMULATION, FIRMATA, SHIELD };
+enum DriverType{
+	SIMULATION,
+#ifndef NO_REALDRIVERS
+	FIRMATA,
+	SHIELD
+#endif
+};
 
 istream& operator>> (istream&in, DriverType& driver){
     string token;
@@ -29,10 +35,12 @@ istream& operator>> (istream&in, DriverType& driver){
 
     if (token == "simulation"){
         driver = SIMULATION;
+#ifndef NO_REALDRIVERS
     } else if (token == "firmata") {
         driver = FIRMATA;
     } else if (token == "shield") {
         driver = SHIELD;
+#endif
     } else {
         throw validation_error (validation_error::invalid_option_value, "invalid driver type");
     }
@@ -160,12 +168,14 @@ int main(int argc, char* argv[]) {
                     LOG(INFO)<< "The simulation mode is set!";
                     pump_driver = new PumpDriverSimulation();
                     break;
-                case FIRMATA:
+#ifndef NO_REALDRIVERS
+                    case FIRMATA:
                     pump_driver = new PumpDriverFirmata();
                      break;
                 case SHIELD:
                     pump_driver = new PumpDriverShield();
                     break;
+#endif
             }
 
             bool pump_driver_initialized = false;

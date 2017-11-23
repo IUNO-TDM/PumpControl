@@ -3,7 +3,9 @@
 
 #include "pumpcontrolinterface.h"
 #include "timeprogramrunner.h"
+#ifndef NO_ENCRYPTION
 #include "cryptobuffer.h"
+#endif
 
 #include "json.hpp"
 
@@ -51,9 +53,11 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
                 std::chrono::system_clock::time_point start_time;
         };
 
-        static void DecryptProgram(unsigned long product_id, const std::string& in, std::string& out);
+#ifndef NO_ENCRYPTION
+        static void DecryptProgram(unsigned long product_id, const std::string& in, CryptoBuffer& out);
 
         static void DecryptPrivate(const CryptoBuffer& in, CryptoBuffer& out);
+#endif
 
         void PumpDriverAmountWarning(int pump_number, int amount_left);
 

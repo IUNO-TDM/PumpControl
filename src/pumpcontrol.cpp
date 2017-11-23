@@ -1,13 +1,18 @@
 #include "pumpcontrol.h"
 #include "pumpcontrolcallback.h"
-#include "cryptohelpers.h"
+
+#ifndef NO_ENCRYPTION
+#	include "cryptohelpers.h"
+#endif
 
 #include "easylogging++.h"
 
-#include <openssl/conf.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-#include <openssl/buffer.h>
+#ifndef NO_ENCRYPTION
+#	include <openssl/conf.h>
+#	include <openssl/evp.h>
+#	include <openssl/err.h>
+#	include <openssl/buffer.h>
+#endif
 
 #include <cfloat>
 
@@ -63,19 +68,53 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
 }
 
 void PumpControl::StartProgram(unsigned long product_id, const string& in) {
-    string recipe_json_string;
-    DecryptProgram(product_id, in, recipe_json_string);
-    json j;
-    try {
-        j = json::parse(recipe_json_string);
-        LOG(DEBUG)<< "Got a valid json string.";
-    } catch (logic_error& ex) {
-        LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
-        throw invalid_argument(ex.what());
+    int max_time = 0;
+    { // scope for minimized life time of recipe_json
+        json recipe_json;
+#ifndef NO_ENCRYPTION
+        // check for characters that must exist in json and must not exist in base64
+        if((in.find("{") == string::npos) && (in.find("}") == string::npos))
+        {
+        	// this isn't json, so it should be base64 containing an encrypted recipe
+        	// scope also minimizes lifetime of recipe_buffer
+            CryptoBuffer recipe_buffer;
+            DecryptProgram(product_id, in, recipe_buffer);
+            try {
+                recipe_json = json::parse(string(recipe_buffer.c_str()));
+                recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
+                LOG(DEBUG)<< "Got a valid json string.";
+            } catch (logic_error& ex) {
+                recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
+                LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
+                throw invalid_argument(ex.what());
+            }
+        }
+        else
+        {
+        	// this isn't base64, so it should be an unencrypted recipe
+            try {
+                recipe_json = json::parse(in);
+                LOG(DEBUG)<< "Got a valid, non-encrypted json string.";
+            } catch (logic_error& ex) {
+                LOG(ERROR)<< "Got an invalid, non-encrypted json string. Reason: '" << ex.what() << "'.";
+                throw invalid_argument(ex.what());
+            }
+        }
+#else
+        {
+            try {
+                recipe_json = json::parse(in);
+                LOG(DEBUG)<< "Got a valid json string.";
+            } catch (logic_error& ex) {
+                LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
+                throw invalid_argument(ex.what());
+            }
+        }
+#endif
+        CheckIngredients(recipe_json["recipe"]);
+        max_time = CreateTimeProgram(recipe_json["recipe"], timeprogram_);
     }
 
-    CheckIngredients(j["recipe"]);
-    int max_time = CreateTimeProgram(j["recipe"], timeprogram_);
     if (max_time > 0) {
         SetPumpControlState(PUMP_STATE_ACTIVE);
         LOG(DEBUG)<< "Successfully imported recipe for product code " << product_id << ".";
@@ -479,7 +518,8 @@ void PumpControl::SetAllPumpsOff(){
     }
 }
 
-void PumpControl::DecryptProgram(unsigned long product_id, const string& in, string& out){
+#ifndef NO_ENCRYPTION
+void PumpControl::DecryptProgram(unsigned long product_id, const string& in, CryptoBuffer& out){
     ERR_load_crypto_strings();
     OpenSSL_add_all_algorithms();
     OPENSSL_config(NULL);
@@ -495,6 +535,7 @@ void PumpControl::DecryptProgram(unsigned long product_id, const string& in, str
     EVP_cleanup();
     ERR_free_strings();
 }
+#endif
 
 
 
