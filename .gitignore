@@ -4,3 +4,6 @@ build
 lib/downloaded
 *.downloaded
 logs
+/.cproject
+/.project
+/private_src/
