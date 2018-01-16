@@ -60,7 +60,7 @@ INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 ifeq ($(OS), Darwin)
 # Run MacOS commands 
-LDFLAGS := -g -L/usr/local/opt/openssl/lib -L/usr/local/Cellar/boost/1.63.0/lib/ -lcrypto -lboost_system -lboost_regex -lboost_program_options -framework IOKit -framework CoreFoundation
+LDFLAGS := -g -L/usr/local/opt/openssl/lib -L/usr/local/Cellar/boost/1.63.0/lib/ -lcrypto -lboost_system -lboost_regex -lboost_program_options -framework IOKit -framework CoreFoundation -framework WibuCmMacX
 INC_DIRS += /usr/local/opt/openssl/include
 INC_DIRS += /usr/local/Cellar/boost/1.63.0/include/
 else
