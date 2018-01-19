@@ -11,6 +11,7 @@ RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
 COPY . /usr/src/app
+COPY pumpcontrol.settings.conf /root
 
 RUN make ENCRYPTION=off REALDRIVERS=off
 
