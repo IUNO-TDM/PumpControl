@@ -8,6 +8,7 @@
 
 #include <boost/program_options.hpp>
 #include <signal.h>
+#include "licences.h"
 
 using namespace std;
 using namespace nlohmann;
@@ -50,6 +51,8 @@ istream& operator>> (istream&in, DriverType& driver){
 int main(int argc, char* argv[]) {
 
     LOG(INFO)<< "PumpControl starting up.";
+
+    printf(licences);
 
     sigset_t mask;
     sigfillset(&mask);
