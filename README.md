@@ -1,7 +1,12 @@
 # PumpControl
 An executable for decrypting and running recipe programs on the cocktail mixer
 
+## prerequisites
 
+```$ sudo apt-get install libboost-all-dev```
+
+
+## recipe format
 
 The format of the recipe:
 ```json
