@@ -16,7 +16,7 @@ const unsigned PI_INPUT = 0;
 
 using namespace std;
 
-const unsigned PumpDriverShield::pins_[] = {26,13,6,5,22,27,17,4};
+const unsigned PumpDriverShield::pins_[] = {26,6,5,7,11,8,9,25}; // MotorShield V01
 const size_t PumpDriverShield::pump_count_ = sizeof(PumpDriverShield::pins_)/sizeof(PumpDriverShield::pins_[0]);
 
 PumpDriverShield::PumpDriverShield(){
