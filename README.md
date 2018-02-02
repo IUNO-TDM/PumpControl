@@ -1,9 +1,15 @@
 # PumpControl
 An executable for decrypting and running recipe programs on the cocktail mixer
 
+See https://github.com/IUNO-TDM/MixerControl/blob/master/Setup.md for further information.
+
 ## prerequisites
 
-```$ sudo apt-get install libboost-all-dev```
+```$ sudo apt-get install libboost-all-dev libssl-dev```
+
+## compile without encryption
+
+```$ make ENCRYPTION=off```
 
 
 ## recipe format
