@@ -26,5 +26,3 @@ Program {
   ]
 }
 ```
-
-The project can be edited in the PlatformIO editor: http://platformio.org
