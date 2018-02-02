@@ -1,2 +1,19 @@
+#! /bin/bash
+
 BASEDIR=$(dirname "$0")
-$BASEDIR/../build/pumpcontrol.out -s < $BASEDIR/TestProgram.drink
+
+# initialize ingredients
+pump=1;
+cat $BASEDIR/ingredients.txt | while read uuid ; do
+	echo $pump - $uuid;
+	curl -X PUT -d $uuid http://localhost:9002/ingredients/$pump/;
+       	echo;
+	curl http://localhost:9002/ingredients/$pump/;
+       	echo;
+       	pump=$[$pump+1]; 
+done
+echo
+
+# send recipe
+curl -X PUT -d @$BASEDIR/testrecipe.json http://localhost:9002/program/0/
+echo
