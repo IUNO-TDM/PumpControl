@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/IUNO-TDM/PumpControl.svg?branch=master)](https://travis-ci.org/IUNO-TDM/PumpControl)
 # PumpControl
 An executable for decrypting and running recipe programs on the cocktail mixer
 
