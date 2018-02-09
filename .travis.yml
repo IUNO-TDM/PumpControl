@@ -13,5 +13,9 @@ env:
 
 before_install:
  - eval "${MATRIX_EVAL}"
+ - cp pumpcontrol.settings.conf ~
 
-script: make ENCRYPTION=off
+script:
+ - make ENCRYPTION=off
+ - ./build/pumpcontrol.out >/dev/null &
+ - ./test/test.sh

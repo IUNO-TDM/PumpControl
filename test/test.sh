@@ -15,5 +15,5 @@ done
 echo
 
 # send recipe
-curl -X PUT -d @$BASEDIR/testrecipe.json http://localhost:9002/program/0/
-echo
+curl -v -S -s -f --no-keepalive -X PUT -d @$BASEDIR/testrecipe.json http://localhost:9002/program/0/
+exit $?
