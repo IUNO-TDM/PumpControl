@@ -58,6 +58,7 @@ int main(int argc, char* argv[]) {
     sigfillset(&mask);
     sigdelset(&mask, SIGTERM);
     sigdelset(&mask, SIGTSTP);
+    sigdelset(&mask, SIGINT);
     pthread_sigmask(SIG_SETMASK, &mask, NULL);
 
     struct sigaction sa;
@@ -68,7 +69,12 @@ int main(int argc, char* argv[]) {
 
     bool sigterm_installed = (0 == sigaction(SIGTERM, &sa, &so));
     if(!sigterm_installed){
-        LOG(WARNING) << "Could not install terminate handler.";
+        LOG(WARNING) << "Could not install terminate handler for SIGTERM.";
+    }
+
+    bool sigint_installed = (0 == sigaction(SIGINT, &sa, &so));
+    if(!sigint_installed){
+        LOG(WARNING) << "Could not install terminate handler for SIGINT.";
     }
 
     {
@@ -204,6 +210,10 @@ int main(int argc, char* argv[]) {
             }
             delete pump_driver;
         }
+    }
+
+    if(sigint_installed){
+        sigaction(SIGINT, &so, NULL);
     }
 
     if(sigterm_installed){
