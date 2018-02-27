@@ -47,6 +47,7 @@ SRCS := $(filter-out ./lib/firmatacpp/%,$(SRCS))
 SRCS := $(filter-out ./lib/serial/%,$(SRCS))
 SRCS := $(filter-out ./src/pumpdriverfirmata.cpp,$(SRCS))
 SRCS := $(filter-out ./src/pumpdrivershield.cpp,$(SRCS))
+SRCS := $(filter-out ./src/iodrivergpio.cpp,$(SRCS))
 endif
 
 OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)

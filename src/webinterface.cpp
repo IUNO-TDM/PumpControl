@@ -148,6 +148,8 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
         HandleEnterServiceMode(response);
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/?:false$"))) {
         HandleLeaveServiceMode(response);
+    } else if (boost::regex_search(combined, what, boost::regex("^GET:\\/io-description\\/?:.*$"))) {
+        HandleGetIoDesc(response);
     } else if(boost::regex_search(combined, what, boost::regex("^PUT:\\/ingredients\\/([0-9]{1,2})\\/amount\\/?:.*$"))) {
         response.Set(404, "Amount (body) is invalid or empty");
     } else if(boost::regex_search(combined, what, boost::regex("^.*:\\/ingredients\\/([0-9]{1,2})\\/amount\\/?:.*$"))) {
@@ -167,6 +169,8 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/?:.*$"))) {
         response.Set(404, "On/off (body) is invalid or empty");
     } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/service\\/?:.*$"))) {
+        response.Set(400, "Wrong method for this URL");
+    } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/io-description\\/?:.*$"))) {
         response.Set(400, "Wrong method for this URL");
     } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/program\\/([0-9]+)\\/?:.*$"))) {
         response.Set(400, "Wrong method for this URL");
@@ -332,6 +336,11 @@ void WebInterface::HandleStartPumpTimed(const string& pump_number_string, const 
     }
 }
 
+void WebInterface::HandleGetIoDesc(HttpResponse& response){
+    LOG(DEBUG)<< "Getting io description ...";
+    response.Set(200, pump_control_->GetIoDesc());
+    LOG(DEBUG)<< "Got io description.";
+}
 
 void WebInterface::SendMessage(const string& message) {
     lock_guard<mutex> guard(connection_mutex_);

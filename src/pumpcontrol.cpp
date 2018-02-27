@@ -20,9 +20,11 @@ using namespace std;
 using namespace nlohmann;
 
 PumpControl::PumpControl(PumpDriverInterface* pump_driver,
-        map<int, PumpDefinition> pump_definitions) :
+        map<int, PumpDefinition> pump_definitions,
+        IoDriverInterface* io_driver) :
     pumpdriver_(pump_driver),
-    pump_definitions_(pump_definitions) {
+    pump_definitions_(pump_definitions),
+    io_driver_(io_driver){
 
     for (auto i : kPumpIngredientsInit) {
         pump_ingredients_bimap_.insert(boost::bimap<int, string>::value_type(i.first, i.second));
@@ -536,6 +538,13 @@ void PumpControl::DecryptProgram(unsigned long product_id, const string& in, Cry
     ERR_free_strings();
 }
 #endif
+
+string PumpControl::GetIoDesc() const{
+    string rv;
+    io_driver_->GetDesc(rv);
+    return rv;
+}
+
 
 
 

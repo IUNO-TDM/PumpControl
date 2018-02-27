@@ -77,6 +77,7 @@ class PumpControlInterface {
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string) = 0;
         virtual void EnterServiceMode() = 0;
         virtual void LeaveServiceMode() = 0;
+        virtual std::string GetIoDesc() const = 0;
 };
 
 #endif

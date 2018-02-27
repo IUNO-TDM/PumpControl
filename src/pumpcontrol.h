@@ -2,6 +2,7 @@
 #define PUMPCONTROL_H
 
 #include "pumpcontrolinterface.h"
+#include "iodriverinterface.h"
 #include "timeprogramrunner.h"
 #ifndef NO_ENCRYPTION
 #include "cryptobuffer.h"
@@ -18,7 +19,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
     public:
         PumpControl(PumpDriverInterface* pump_driver,
-                std::map<int, PumpDefinition> pump_configurations);
+                std::map<int, PumpDefinition> pump_configurations,
+                IoDriverInterface* io_driver);
 
         virtual ~PumpControl();
 
@@ -36,6 +38,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string);
         virtual void EnterServiceMode();
         virtual void LeaveServiceMode();
+        virtual std::string GetIoDesc() const;
 
         //TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent);
@@ -64,6 +67,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
         PumpDriverInterface* pumpdriver_ = NULL;
         std::map<int, PumpDefinition> pump_definitions_;
+
+        IoDriverInterface* io_driver_;
 
         PumpControlCallback* callback_client_ = NULL;
         std::mutex callback_client_mutex_;
