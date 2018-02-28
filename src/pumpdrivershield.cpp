@@ -1,19 +1,7 @@
 #include "pumpdrivershield.h"
 #include "easylogging++.h"
 #include "json.hpp"
-
-#ifdef OS_raspbian
-#include <pigpio.h> 
-#else
-int gpioInitialise(){return -1;}
-void gpioTerminate(){}
-int gpioSetPWMrange(unsigned, unsigned){return -1;}
-int gpioSetPWMfrequency(unsigned, unsigned){return -1;}
-int gpioPWM(unsigned, unsigned){return -1;}
-int gpioSetMode(unsigned, unsigned){return -1;}
-const unsigned PI_OUTPUT = 0;
-const unsigned PI_INPUT = 0;
-#endif
+#include "gpioinithelper.h"
 
 using namespace std;
 using namespace nlohmann;
@@ -34,7 +22,7 @@ bool PumpDriverShield::Init(const char* config_txt) {
     	ParseConfigString(config_txt);
     }
 
-    int ec_initialize = gpioInitialise();
+    int ec_initialize = wrapGpioInitialise();
     bool rv = false;
 
     if(ec_initialize >= 0){
@@ -62,7 +50,7 @@ void PumpDriverShield::DeInit(){
             gpioPWM(pin, 0);
             gpioSetMode(pin, PI_INPUT);
         }
-        gpioTerminate();
+        wrapGpioTerminate();
     }
 }
 

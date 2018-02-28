@@ -1,6 +1,7 @@
 #ifndef PUMPCONTROLINTERFACE_H
 #define PUMPCONTROLINTERFACE_H
 
+#include "iodescription.h"
 #include "pumpdriverinterface.h"
 #include <string>
 #include <unistd.h>
@@ -77,7 +78,9 @@ class PumpControlInterface {
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string) = 0;
         virtual void EnterServiceMode() = 0;
         virtual void LeaveServiceMode() = 0;
-        virtual std::string GetIoDesc() const = 0;
+        virtual void GetIoDesc(std::vector<IoDescription>& desc) const = 0;
+        virtual bool GetValue(const std::string& name) const = 0;
+        virtual void SetValue(const std::string& name, bool value) = 0;
 };
 
 #endif

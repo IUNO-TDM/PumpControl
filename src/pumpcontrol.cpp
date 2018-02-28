@@ -55,6 +55,7 @@ void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
     if( !callback_client_ ){
         callback_client_ = client;
         callback_client_->NewPumpControlState(pumpcontrol_state_);
+        io_driver_->RegisterCallbackClient(this);
     }else{
         throw logic_error("Tried to register a client where already one is registered");
     }
@@ -63,6 +64,7 @@ void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
 void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
     lock_guard<mutex> lock(callback_client_mutex_);
     if( callback_client_ == client ){
+        io_driver_->UnregisterCallbackClient(this);
         callback_client_ = NULL;
     }else{
         throw logic_error("Tried to unregister a client that isn't registered");
@@ -539,11 +541,24 @@ void PumpControl::DecryptProgram(unsigned long product_id, const string& in, Cry
 }
 #endif
 
-string PumpControl::GetIoDesc() const{
-    string rv;
-    io_driver_->GetDesc(rv);
-    return rv;
+void PumpControl::GetIoDesc(vector<IoDescription>& desc) const{
+    io_driver_->GetDesc(desc);
 }
+
+bool PumpControl::GetValue(const string& name) const {
+    return io_driver_->GetValue(name);
+}
+void PumpControl::SetValue(const string& name, bool value) {
+    io_driver_->SetValue(name, value);
+}
+
+void PumpControl::NewInputState(const char* name, bool value) {
+    lock_guard<mutex> lock(callback_client_mutex_);
+    if(callback_client_){
+        callback_client_->NewInputState(name, value);
+    }
+}
+
 
 
 

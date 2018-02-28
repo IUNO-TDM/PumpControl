@@ -15,7 +15,7 @@
 #include <mutex>
 #include <boost/bimap.hpp>
 
-class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback {
+class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback, public IoDriverCallback {
 
     public:
         PumpControl(PumpDriverInterface* pump_driver,
@@ -38,7 +38,9 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string);
         virtual void EnterServiceMode();
         virtual void LeaveServiceMode();
-        virtual std::string GetIoDesc() const;
+        virtual void GetIoDesc(std::vector<IoDescription>& desc) const;
+        virtual bool GetValue(const std::string& name) const;
+        virtual void SetValue(const std::string& name, bool value);
 
         //TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent);
@@ -46,6 +48,9 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgramEnded(std::string id);
         virtual void SetFlow(size_t pump_number, float flow);
         virtual void SetAllPumpsOff();
+
+        //IoDriverCallback
+        virtual void NewInputState(const char* name, bool value);
 
         virtual void SetPumpControlState(PumpControlState state);
 

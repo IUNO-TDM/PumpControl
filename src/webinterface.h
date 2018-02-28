@@ -22,6 +22,7 @@ class WebInterface : public PumpControlCallback{
         virtual void ProgramEnded(std::string id);
         virtual void AmountWarning(size_t pump_number, std::string ingredient, int warning_limit);
         virtual void Error(std::string error_type, int error_number, std::string details);
+        virtual void NewInputState(const char* name, bool value);
 
     private:
 
@@ -56,6 +57,8 @@ class WebInterface : public PumpControlCallback{
         void HandleSwitchPump(const std::string& pump_number_string, const std::string& on_off, HttpResponse& response);
         void HandleStartPumpTimed(const std::string& pump_number_string, const std::string& current_string, const std::string& duration_string, HttpResponse& response);
         void HandleGetIoDesc(HttpResponse& response);
+        void HandleGetValue(const std::string& name, HttpResponse& response);
+        void HandleSetValue(const std::string& name, const std::string& value_str, HttpResponse& response);
 
         void SendMessage(const std::string& message);
 
@@ -67,7 +70,9 @@ class WebInterface : public PumpControlCallback{
         std::mutex connection_mutex_;
 
         PumpControlInterface* pump_control_ = NULL;
-        PumpControlInterface::PumpControlState pump_control_state_ = PumpControlInterface::PUMP_STATE_UNINITIALIZED;
+
+        std::map<std::string, std::string> states_;
+        std::mutex states_mutex_;
 };
 
 #endif

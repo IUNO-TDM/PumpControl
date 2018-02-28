@@ -16,7 +16,6 @@ WebInterface::WebInterface(int port, PumpControlInterface* pump_control) {
 
     port_ = port;
     pump_control_ = pump_control;
-    pump_control_->RegisterCallbackClient(this);
 
     server_.set_access_channels(websocketpp::log::alevel::all);
     server_.clear_access_channels(websocketpp::log::alevel::frame_payload);
@@ -31,28 +30,34 @@ WebInterface::WebInterface(int port, PumpControlInterface* pump_control) {
             });
     server_thread_ = move(t);
 
+    pump_control_->RegisterCallbackClient(this);
+
     LOG(DEBUG) << "Webinterface constructor done successfully";
 }
 
 WebInterface::~WebInterface() {
     LOG(DEBUG)<< "Webinterface destructor";
 
+    pump_control_->UnregisterCallbackClient(this);
+
     server_.stop();
     if(server_thread_.joinable()) {
         server_thread_.join();
     }
 
-    pump_control_->UnregisterCallbackClient(this);
-
     LOG(DEBUG)<< "Webinterface destructor done successfully";
 }
 
 void WebInterface::NewPumpControlState(PumpControlInterface::PumpControlState state){
-    pump_control_state_ = state;
     LOG(DEBUG)<< "send update to websocketclients: " << PumpControlInterface::NameForPumpControlState(state);
     json json_message = json::object();
     json_message["mode"] = PumpControlInterface::NameForPumpControlState(state);
-    SendMessage(json_message.dump());
+    string str_message = json_message.dump();
+    {
+        lock_guard<mutex> guard(states_mutex_);
+        states_["pump_control_state"] = str_message;
+    }
+    SendMessage(str_message);
 }
 
 void WebInterface::ProgressUpdate(string id, int percent) {
@@ -89,16 +94,33 @@ void WebInterface::Error(string error_type, int error_number, string details) {
     SendMessage(json_message.dump());
 }
 
+void WebInterface::NewInputState(const char* name, bool value) {
+    LOG(DEBUG)<<"New input state " << (value?"high":"low") << " for input '" << name << "'.";
+    json json_message = json::object();
+    json_message["input"]["name"] = name;
+    json_message["input"]["value"] = value;
+    string statename("input_state_");
+    statename+=name;
+    string str_message = json_message.dump();
+    {
+        lock_guard<mutex> guard(states_mutex_);
+        states_[statename] = str_message;
+    }
+    SendMessage(str_message);
+}
+
 void WebInterface::OnOpen(connection_hdl hdl) {
     {
         lock_guard<mutex> guard(connection_mutex_);
         LOG(DEBUG)<< "WebInterface onOpen";
         connections_.insert(hdl);
     }
-
-    json json_message = json::object();
-    json_message["mode"] = PumpControlInterface::NameForPumpControlState(pump_control_state_);
-    SendMessage(json_message.dump());
+    {
+        lock_guard<mutex> guard(states_mutex_);
+        for(auto s : states_){
+            SendMessage(s.second);
+        }
+    }
 }
 
 void WebInterface::OnClose(connection_hdl hdl) {
@@ -140,7 +162,7 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
         HandleDeleteIngredientForPump(what[1].str(), response);
     } else if (boost::regex_search(combined, what, boost::regex("^GET:\\/pumps\\/?:.*$"))) {
         HandleGetPumps(response);
-    } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/pumps\\/([0-9]{1,2})\\/?:(true|false)$"))) {
+    } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/pumps\\/([0-9]{1,2})\\/?:(on|off)$"))) {
         HandleSwitchPump(what[1].str(), what[2].str(), response);
     } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/service\\/start-timed\\/([0-9]{1,2})\\/current\\/(-?[0-9]+(\\.[0-9]+)?)\\/duration\\/(-?[0-9]+(\\.[0-9]+)?)\\/?:.*"))) {
         HandleStartPumpTimed(what[1].str(), what[2].str(), what[4].str(), response);
@@ -150,6 +172,10 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
         HandleLeaveServiceMode(response);
     } else if (boost::regex_search(combined, what, boost::regex("^GET:\\/io-description\\/?:.*$"))) {
         HandleGetIoDesc(response);
+    } else if (boost::regex_search(combined, what, boost::regex("^GET:\\/io\\/([-0-9a-zA-Z_]+)\\/?:.*$"))) {
+        HandleGetValue(what[1].str(), response);
+    } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/io\\/([-0-9a-zA-Z_]+)\\/?:(on|off)$"))) {
+        HandleSetValue(what[1].str(), what[2].str(), response);
     } else if(boost::regex_search(combined, what, boost::regex("^PUT:\\/ingredients\\/([0-9]{1,2})\\/amount\\/?:.*$"))) {
         response.Set(404, "Amount (body) is invalid or empty");
     } else if(boost::regex_search(combined, what, boost::regex("^.*:\\/ingredients\\/([0-9]{1,2})\\/amount\\/?:.*$"))) {
@@ -171,6 +197,10 @@ void WebInterface::HandleHttpMessage(const string& method, const string& path, c
     } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/service\\/?:.*$"))) {
         response.Set(400, "Wrong method for this URL");
     } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/io-description\\/?:.*$"))) {
+        response.Set(400, "Wrong method for this URL");
+    } else if (boost::regex_search(combined, what, boost::regex("^PUT:\\/io\\/([-0-9a-zA-Z_]+)\\/?:.*$"))) {
+        response.Set(404, "Body is not exactly on or off");
+    } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/io\\/([-0-9a-zA-Z_]+)\\/?:.*$"))) {
         response.Set(400, "Wrong method for this URL");
     } else if (boost::regex_search(combined, what, boost::regex("^.*:\\/program\\/([0-9]+)\\/?:.*$"))) {
         response.Set(400, "Wrong method for this URL");
@@ -338,8 +368,54 @@ void WebInterface::HandleStartPumpTimed(const string& pump_number_string, const 
 
 void WebInterface::HandleGetIoDesc(HttpResponse& response){
     LOG(DEBUG)<< "Getting io description ...";
-    response.Set(200, pump_control_->GetIoDesc());
-    LOG(DEBUG)<< "Got io description.";
+    vector<IoDescription> desc;
+    pump_control_->GetIoDesc(desc);
+    json jdesc=json::array();
+    for(auto d: desc){
+        json j;
+        j["name"]=d.name_;
+        switch(d.type_){
+            case IoDescription::INPUT:
+                j["type"]="input";
+                break;
+            case IoDescription::OUTPUT:
+                j["type"]="output";
+                break;
+        }
+        jdesc.push_back(j);
+    }
+    string sdesc = jdesc.dump();
+    response.Set(200, sdesc);
+    LOG(DEBUG)<< "Got io description: " << sdesc << ".";
+}
+
+void WebInterface::HandleGetValue(const std::string& name, HttpResponse& response){
+    LOG(DEBUG)<< "Getting io value for '" << name << "' ...";
+    try {
+        bool value = pump_control_->GetValue(name);
+        response.Set(200, value?"true":"false");
+        LOG(DEBUG)<< "Got input/output value " << value << " for '" << name << "'.";
+    } catch(out_of_range&) {
+        stringstream ss;
+        ss << "Input/Output with name '" << name << "' can't be read because it doesn't exist.";
+        response.Set(400, ss.str());
+        LOG(DEBUG)<< ss.str();
+    }
+}
+
+void WebInterface::HandleSetValue(const std::string& name, const std::string& value_str, HttpResponse& response){
+    LOG(DEBUG)<< "Setting output value for '" << name << "' ...";
+    try {
+        bool value = value_str=="on";
+        pump_control_->SetValue(name, value);
+        response.Set(200, "SUCCESS");
+        LOG(DEBUG)<< "Set output value " << value_str << " for '" << name << "'.";
+    } catch(out_of_range&) {
+        stringstream ss;
+        ss << "Output with name '" << name << "' can't be set because it doesn't exist.";
+        response.Set(400, ss.str());
+        LOG(DEBUG)<< ss.str();
+    }
 }
 
 void WebInterface::SendMessage(const string& message) {
