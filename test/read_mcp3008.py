@@ -12,14 +12,19 @@ def readadc(channel = 0):
   data = ((adc[1] & 3) << 8) + adc[2]
   return data
 
+adcval = [0]*8
+state  = [0]*8
+
 # Einleseschleife
 while True:
-  # Lese ADC-Kanal 0
-  adcval = readadc(0)
-  # Wert ausgeben 
-  print '{0:4d}, {1:4d}, {2:4d}, {3:4d}, {4:4d}, {5:4d}, {6:4d}, {7:4d}'.format(adcval, readadc(1), readadc(2), readadc(3), readadc(4), readadc(5), readadc(6), readadc(7))
+    for i in range(8):
+        adcval[i] = readadc(i)
+        state[i] = '#' if adcval[i] > 3 else '-'
 
-#  print "ADC1 = ", readadc(1)
-  # etwas warten
-  time.sleep(1)
+    # Wert ausgeben
+    print '{0:4d}, {1:4d}, {2:4d}, {3:4d}, {4:4d}, {5:4d}, {6:4d}, {7:4d}'.format(adcval[0], adcval[1], adcval[2], adcval[3], adcval[4], adcval[5], adcval[6], adcval[7]), ' | ',
+    print '{0:3s} {1:3s} {2:3s} {3:3s} {4:3s} {5:3s} {6:3s} {7:3s}'.format(state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7])
+
+    # etwas warten
+    time.sleep(1)
 
