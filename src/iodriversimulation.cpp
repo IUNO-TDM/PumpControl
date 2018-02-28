@@ -19,6 +19,6 @@ void IoDriverSimulation::DeInit(){
 }
 
 void IoDriverSimulation::GetDesc(string& desc) const {
-    desc="[{\"name\":\"foo\",\"type\":\"input\"}{\"name\":\"bar\",\"type\":\"output\"}]";
+    desc="[{\"name\":\"foo\",\"type\":\"input\"},{\"name\":\"bar\",\"type\":\"output\"}]";
     LOG(INFO)<< "GetDesc returning '" << desc << "'";
 }
