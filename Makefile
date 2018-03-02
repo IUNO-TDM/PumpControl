@@ -2,7 +2,7 @@ TARGET_EXEC ?= pumpcontrol.out
 OS := $(shell uname)
 BUILD_DIR ?= ./build
 LIB_DIR ?= ./lib
-OS_ID := $(shell grep '^ID=' /etc/os-release | sed s/ID=//)
+ARCH := $(shell uname -m)
 
 ENCRYPTION ?= on
 ifeq ($(ENCRYPTION), on)
@@ -10,7 +10,7 @@ FLAG_NO_ENCRYPTION =
 ENCRYPTION_LIB_FLAGS = -lcrypto -lwibucm
 else
 FLAG_NO_ENCRYPTION = -DNO_ENCRYPTION
-ENCRYPTION_LIB_FLAGS = 
+ENCRYPTION_LIB_FLAGS =
 endif
 
 SRC_DIRS = ./src \
@@ -35,8 +35,10 @@ endif
 REALDRIVERS ?= on
 ifeq ($(REALDRIVERS), on)
 FLAG_NO_REALDRIVERS =
-ifeq ($(OS_ID), raspbian)
+ifeq ($(ARCH),$(filter $(ARCH),armv6l armv7l armv8))
+$(info ************  Include PiGPIO Library ************)
 GPIO_LIB_FLAG=-lpigpio
+PLATFORM_RASPBERRYPI_FLAG="-DPLATFORM_RASPBERRYPI"
 else
 GPIO_LIB_FLAG=
 endif
@@ -59,7 +61,7 @@ INC_DIRS += ./lib/serial/include
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 ifeq ($(OS), Darwin)
-# Run MacOS commands 
+# Run MacOS commands
 LDFLAGS := -g -L/usr/local/opt/openssl/lib -L/usr/local/Cellar/boost/1.63.0/lib/ -lcrypto -lboost_system -lboost_regex -lboost_program_options -framework IOKit -framework CoreFoundation -framework WibuCmMacX
 INC_DIRS += /usr/local/opt/openssl/include
 INC_DIRS += /usr/local/Cellar/boost/1.63.0/include/
@@ -72,7 +74,7 @@ endif
 DOWNLOAD_FILES := $(shell find $(LIB_DIR) -name *.download)
 DOWNLOADED_FILES := $(DOWNLOAD_FILES:%.download=%.downloaded)
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall -g -DOS_$(OS_ID) -DELPP_THREAD_SAFE $(FLAG_NO_ENCRYPTION) $(FLAG_NO_REALDRIVERS)
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall -g $(PLATFORM_RASPBERRYPI_FLAG) -DELPP_THREAD_SAFE $(FLAG_NO_ENCRYPTION) $(FLAG_NO_REALDRIVERS)
 
 %.downloaded: %.download
 	$(MKDIR_P) $(dir $<)/downloaded/$(basename $(notdir $<))/src
@@ -105,9 +107,12 @@ realclean:
 clean:
 	$(RM) -r $(BUILD_DIR)
 
+install:
+	install -m755 build/pumpcontrol.out /usr/bin/pumpcontrol
+
 list-srcs:
 	@echo $(SRCS)
-	
+
 protect: all ./private_src/pumpcontrol.wbc
 	AxProtectorLin @./private_src/pumpcontrol.wbc
 
