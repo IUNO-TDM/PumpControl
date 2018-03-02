@@ -52,8 +52,8 @@ COPY --from=build /usr/bin/pumpcontrol /usr/bin/pumpcontrol
 COPY --from=build /usr/local /usr
 COPY pumpcontrol.settings.conf /etc/pumpcontrol/pumpcontrol.conf
 
-RUN addgroup -S -g 99 pump_control &&\
-	adduser -D -S -h /etc/pump-control -s /sbin/nologin -u 99 -G pump_control pump_control &&\
+RUN addgroup -S -g 99 pumpcontrol &&\
+	adduser -D -S -h /etc/pumpcontrol -s /sbin/nologin -u 99 -G pumpcontrol pumpcontrol &&\
     apk --update --no-cache --no-progress add \
         bash \
         boost \
@@ -63,9 +63,7 @@ RUN addgroup -S -g 99 pump_control &&\
         boost-system \
         boost-thread \
         libressl \
-        tini &&\
-    mkdir -p /etc/pump-control &&\
-    chown pump_control:pump_control /etc/pump-control
+        tini
 
 EXPOSE 9002/tcp
 
