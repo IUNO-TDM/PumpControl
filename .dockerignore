@@ -1,0 +1,10 @@
+.git
+.gitignore
+.settings
+.travis.yml
+.vscode
+docker-compose.yml
+Dockerfile
+LICENSE
+README.md
+test

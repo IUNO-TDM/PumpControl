@@ -1,0 +1,24 @@
+version: '3.0'
+services:
+  pumpcontrol:
+    image: iuno/pump-control
+    build:
+      context: .
+      args:
+        ENCRYPTION: "off"
+        REALDRIVERS: "on"
+    cap_add:
+      - SYS_RAWIO
+    devices:
+      - "/dev/mem:/dev/mem"
+      - "/dev/vcio:/dev/vcio"
+    networks:
+      - pump_nw
+    ports:
+      - "9002/tcp"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/pumpcontrol/pumpcontrol.conf:/etc/pumpcontrol/pumpcontrol.conf:ro"
+
+networks:
+  pump_nw:
