@@ -142,6 +142,9 @@ void WebInterface::OnHttp(connection_hdl hdl) {
 
     con->set_body(response.response_message);
     con->set_status((websocketpp::http::status_code::value)response.response_code);
+    if(response.content_type_ != ""){
+        con->append_header("Content-Type", response.content_type_);
+    }
 }
 
 void WebInterface::HandleHttpMessage(const string& method, const string& path, const string& body, HttpResponse& response) {
@@ -247,6 +250,7 @@ void WebInterface::HandleGetPumps(HttpResponse& response){
         responseJson[ss.str()]= pump;
     }
     response.Set(200 ,responseJson.dump());
+    response.SetContentType("application/json");
     LOG(DEBUG)<< "Pump definitions successfully got.";
 }
 
@@ -386,6 +390,7 @@ void WebInterface::HandleGetIoDesc(HttpResponse& response){
     }
     string sdesc = jdesc.dump();
     response.Set(200, sdesc);
+    response.SetContentType("application/json");
     LOG(DEBUG)<< "Got io description: " << sdesc << ".";
 }
 

@@ -29,6 +29,7 @@ class WebInterface : public PumpControlCallback{
         struct HttpResponse {
                 int response_code;
                 std::string response_message;
+                std::string content_type_;
                 void Set(int code, const char* msg){
                     response_code=code;
                     response_message = msg;
@@ -36,6 +37,9 @@ class WebInterface : public PumpControlCallback{
                 void Set(int code, const std::string& msg){
                     response_code=code;
                     response_message = msg;
+                }
+                void SetContentType(const char* content_type){
+                    content_type_ = content_type;
                 }
         };
 
