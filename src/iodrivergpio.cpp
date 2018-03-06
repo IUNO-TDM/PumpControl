@@ -23,6 +23,18 @@ IoDriverGpio::GpioType parse_pin_type(const string& str){
     return t;
 }
 
+IoDriverGpio::GpioPolarity parse_polarity(const string& str){
+    IoDriverGpio::GpioPolarity p;
+    if (str == "active_low"){
+       p = IoDriverGpio::ACTIVE_LOW;
+   } else if (str == "active_high") {
+       p = IoDriverGpio::ACTIVE_HIGH;
+   } else {
+       throw invalid_argument("invalid polarity value");
+   }
+   return p;
+}
+
 
 IoDriverGpio::IoDriverGpio():client_(NULL), gpio_initialized_(false), poll_thread_(NULL){
 }
@@ -62,7 +74,9 @@ bool IoDriverGpio::Init(const char* config_text){
                 }
                 GpioDesc gd;
                 string pin_type = config_json[i]["type"];
+                string polarity = config_json[i]["polarity"];
                 gd.type_=parse_pin_type(pin_type);
+                gd.polarity_=parse_polarity(polarity);
                 gd.pin_=config_json[i]["pin"];
                 for(size_t j=0; j<i; j++){
                     if(pins_used[j] == gd.pin_){
@@ -88,36 +102,32 @@ bool IoDriverGpio::Init(const char* config_text){
     string last_io_name;
     for(auto i : gpios_){
         last_io_name = i.first;
-        int r=0;
-        switch(i.second.type_){
-            case OUTPUT:
-                bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
-                bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_OFF);
-                bad = bad || gpioSetMode(i.second.pin_, PI_OUTPUT);
-                bad = bad || gpioWrite(i.second.pin_, 0);
-                i.second.current_value_ = false;
-                break;
-            case INPUT:
-                bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
-                bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_OFF);
-                r = gpioRead(i.second.pin_);
-                break;
-            case INPUT_PULLDOWN:
-                bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
-                bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_DOWN);
-                r = gpioRead(i.second.pin_);
-                break;
-            case INPUT_PULLUP:
-                bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
-                bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_UP);
-                r = gpioRead(i.second.pin_);
-                break;
-        }
-
-        if(r >= 0){
-            i.second.current_value_= r;
-        }else{
-            bad = true;
+        try{
+            switch(i.second.type_){
+                case OUTPUT:
+                    bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
+                    bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_OFF);
+                    bad = bad || gpioSetMode(i.second.pin_, PI_OUTPUT);
+                    Write(i.second, false, i.first);
+                    break;
+                case INPUT:
+                    bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
+                    bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_OFF);
+                    i.second.current_value_ = Read(i.second, i.first);
+                    break;
+                case INPUT_PULLDOWN:
+                    bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
+                    bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_DOWN);
+                    i.second.current_value_ = Read(i.second, i.first);
+                    break;
+                case INPUT_PULLUP:
+                    bad = bad || gpioSetMode(i.second.pin_, PI_INPUT);
+                    bad = bad || gpioSetPullUpDown(i.second.pin_, PI_PUD_UP);
+                    i.second.current_value_ = Read(i.second, i.first);
+                    break;
+            }
+        }catch(...){
+            bad=true;
         }
     }
 
@@ -159,14 +169,8 @@ void IoDriverGpio::PollLoop(){
             case INPUT:
             case INPUT_PULLDOWN:
             case INPUT_PULLUP:{
-                int r=gpioRead(i.second.pin_);
-                if(r < 0){
-                    LOG(ERROR)<< "Read from gpio at pin " << i.second.pin_ << " failed.";
-                    exit_now = true;
-                }
-                bool b = r;
-                i.second.current_value_=b;
-                client_->NewInputState(i.first.c_str(), b);
+                i.second.current_value_ = Read(i.second, i.first);
+                client_->NewInputState(i.first.c_str(), i.second.current_value_);
                 break;
             }
         }
@@ -185,15 +189,10 @@ void IoDriverGpio::PollLoop(){
                     case INPUT:
                     case INPUT_PULLDOWN:
                     case INPUT_PULLUP:{
-                        int r=gpioRead(i.second.pin_);
-                        if(r < 0){
-                            LOG(ERROR)<< "Read from gpio at pin " << i.second.pin_ << " failed.";
-                            exit_now = true;
-                        }
-                        bool b = r;
-                        if(i.second.current_value_!=b){
-                            i.second.current_value_=b;
-                            client_->NewInputState(i.first.c_str(), b);
+                        bool b = Read(i.second, i.first);
+                        if(i.second.current_value_ != b){
+                            i.second.current_value_ = b;
+                            client_->NewInputState(i.first.c_str(), i.second.current_value_);
                         }
                         break;
                     }
@@ -266,11 +265,42 @@ void IoDriverGpio::SetValue(const string& name, bool value) {
         case INPUT_PULLUP:
             throw out_of_range("tried to set value of non-existent output");
     }
-    if(gpioWrite(gpios_[name].pin_, value?1:0)){
-        LOG(ERROR)<< "Write to gpio with name '" << name << "' at pin " << gpios_[name].pin_ << " failed.";
+    Write(gpios_[name], value, name);
+}
+
+bool IoDriverGpio::Read(const GpioDesc& gd, const string& name){
+    int r=gpioRead(gd.pin_);
+    if(r < 0){
+        LOG(ERROR)<< "Read from gpio with name '" << name << "' at pin " << gd.pin_ << " failed.";
+        throw runtime_error("Read from gpio failed.");
+    }
+    bool b=false;
+    switch (gd.polarity_){
+        case ACTIVE_HIGH:
+            b = r;
+            break;
+        case ACTIVE_LOW:
+            b = !r;
+            break;
+    }
+    return b;
+}
+
+void IoDriverGpio::Write(GpioDesc& gd, bool value, const string& name){
+    bool b;
+    switch (gd.polarity_){
+        case ACTIVE_HIGH:
+            b = value;
+            break;
+        case ACTIVE_LOW:
+            b = !value;
+            break;
+    }
+    if(gpioWrite(gd.pin_, b?1:0)){
+        LOG(ERROR)<< "Write to gpio with name '" << name << "' at pin " << gd.pin_ << " failed.";
         throw runtime_error("could not set gpio output");
     }
-    gpios_.at(name).current_value_ = value;
+    gd.current_value_ = value;
 }
 
 
