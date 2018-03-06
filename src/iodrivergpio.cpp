@@ -195,7 +195,7 @@ void IoDriverGpio::PollLoop(){
 }
 
 void IoDriverGpio::RegisterCallbackClient(IoDriverCallback* client){
-    if(!client_){
+    if(client_){
         throw runtime_error("duplicate register of callback client");
     }
     client_ = client;
