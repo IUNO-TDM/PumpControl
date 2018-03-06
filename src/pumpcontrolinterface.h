@@ -14,6 +14,10 @@ class PumpControlInterface {
             public:
               explicit not_in_this_state (const std::string& what_arg) : std::logic_error(what_arg){}
         };
+        class start_while_active : public std::logic_error {
+            public:
+              explicit start_while_active (const std::string& what_arg) : std::logic_error(what_arg){}
+        };
 
         static const size_t lookup_table_entry_count = 10;
 

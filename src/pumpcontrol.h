@@ -70,6 +70,7 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         void PumpDriverAmountWarning(int pump_number, int amount_left);
 
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
+        std::mutex state_mutex_;
         PumpDriverInterface* pumpdriver_ = NULL;
         std::map<int, PumpDefinition> pump_definitions_;
 

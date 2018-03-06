@@ -72,57 +72,66 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
 }
 
 void PumpControl::StartProgram(unsigned long product_id, const string& in) {
-    int max_time = 0;
-    { // scope for minimized life time of recipe_json
-        json recipe_json;
-#ifndef NO_ENCRYPTION
-        // check for characters that must exist in json and must not exist in base64
-        if((in.find("{") == string::npos) && (in.find("}") == string::npos))
-        {
-        	// this isn't json, so it should be base64 containing an encrypted recipe
-        	// scope also minimizes lifetime of recipe_buffer
-            CryptoBuffer recipe_buffer;
-            DecryptProgram(product_id, in, recipe_buffer);
-            try {
-                recipe_json = json::parse(string(recipe_buffer.c_str()));
-                recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
-                LOG(DEBUG)<< "Got a valid json string.";
-            } catch (logic_error& ex) {
-                recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
-                LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
-                throw invalid_argument(ex.what());
-            }
-        }
-        else
-        {
-        	// this isn't base64, so it should be an unencrypted recipe
-            try {
-                recipe_json = json::parse(in);
-                LOG(DEBUG)<< "Got a valid, non-encrypted json string.";
-            } catch (logic_error& ex) {
-                LOG(ERROR)<< "Got an invalid, non-encrypted json string. Reason: '" << ex.what() << "'.";
-                throw invalid_argument(ex.what());
-            }
-        }
-#else
-        {
-            try {
-                recipe_json = json::parse(in);
-                LOG(DEBUG)<< "Got a valid json string.";
-            } catch (logic_error& ex) {
-                LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
-                throw invalid_argument(ex.what());
-            }
-        }
-#endif
-        CheckIngredients(recipe_json["recipe"]);
-        max_time = CreateTimeProgram(recipe_json["recipe"], timeprogram_);
-    }
 
-    if (max_time > 0) {
-        SetPumpControlState(PUMP_STATE_ACTIVE);
-        LOG(DEBUG)<< "Successfully imported recipe for product code " << product_id << ".";
-        timeprogramrunner_->StartProgram("no order name", timeprogram_);
+    SetPumpControlState(PUMP_STATE_ACTIVE);
+
+    try{
+        int max_time = 0;
+        { // scope for minimized life time of recipe_json
+            json recipe_json;
+#ifndef NO_ENCRYPTION
+            // check for characters that must exist in json and must not exist in base64
+            if((in.find("{") == string::npos) && (in.find("}") == string::npos))
+            {
+                // this isn't json, so it should be base64 containing an encrypted recipe
+                // scope also minimizes lifetime of recipe_buffer
+                CryptoBuffer recipe_buffer;
+                DecryptProgram(product_id, in, recipe_buffer);
+                try {
+                    recipe_json = json::parse(string(recipe_buffer.c_str()));
+                    recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
+                    LOG(DEBUG)<< "Got a valid json string.";
+                } catch (logic_error& ex) {
+                    recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
+                    LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
+                    throw invalid_argument(ex.what());
+                }
+            }
+            else
+            {
+                // this isn't base64, so it should be an unencrypted recipe
+                try {
+                    recipe_json = json::parse(in);
+                    LOG(DEBUG)<< "Got a valid, non-encrypted json string.";
+                } catch (logic_error& ex) {
+                    LOG(ERROR)<< "Got an invalid, non-encrypted json string. Reason: '" << ex.what() << "'.";
+                    throw invalid_argument(ex.what());
+                }
+            }
+#else
+            {
+                try {
+                    recipe_json = json::parse(in);
+                    LOG(DEBUG)<< "Got a valid json string.";
+                } catch (logic_error& ex) {
+                    LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
+                    throw invalid_argument(ex.what());
+                }
+            }
+#endif
+            CheckIngredients(recipe_json["recipe"]);
+            max_time = CreateTimeProgram(recipe_json["recipe"], timeprogram_);
+        }
+
+        if (max_time > 0) {
+            LOG(DEBUG)<< "Successfully imported recipe for product code " << product_id << ".";
+            timeprogramrunner_->StartProgram("no order name", timeprogram_);
+        }else{
+            SetPumpControlState(PUMP_STATE_IDLE);
+        }
+    }catch(...){
+        SetPumpControlState(PUMP_STATE_ERROR);
+        throw;
     }
 }
 
@@ -303,34 +312,75 @@ void PumpControl::SeparateTooFastIngredients(vector<int>& separated_pumps, map<i
 
 void PumpControl::SetPumpControlState(PumpControlState state) {
     LOG(DEBUG)<< "SetPumpControlState: " << PumpControlInterface::NameForPumpControlState(state);
-    if (pumpcontrol_state_ != state) {
-        switch (state) {
+    PumpControlState new_state;
+    bool state_changed = false;
+    {
+        lock_guard<mutex> lock(state_mutex_);
+
+        switch (pumpcontrol_state_) {
             case PUMP_STATE_ACTIVE:
-                if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
-                    pumpcontrol_state_ = state;
+                switch(state){
+                    case PUMP_STATE_IDLE:
+                    case PUMP_STATE_ERROR:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_ACTIVE:
+                        throw start_while_active("start while other program is already active.");
+                    case PUMP_STATE_SERVICE:
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
                 }
                 break;
             case PUMP_STATE_SERVICE:
-                if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
-                    pumpcontrol_state_ = state;
+                switch(state){
+                    case PUMP_STATE_IDLE:
+                    case PUMP_STATE_ERROR:
+                    case PUMP_STATE_SERVICE:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_ACTIVE:
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
                 }
                 break;
             case PUMP_STATE_IDLE:
             case PUMP_STATE_ERROR:
-                pumpcontrol_state_ = state;
+                switch(state){
+                    case PUMP_STATE_ACTIVE:
+                    case PUMP_STATE_IDLE:
+                    case PUMP_STATE_ERROR:
+                    case PUMP_STATE_SERVICE:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
+                }
                 break;
             case PUMP_STATE_UNINITIALIZED:
+                switch(state){
+                    case PUMP_STATE_IDLE:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_ERROR:
+                    case PUMP_STATE_SERVICE:
+                    case PUMP_STATE_ACTIVE:
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
+                }
                 break;
+        }
+
+        if(new_state != pumpcontrol_state_){
+            pumpcontrol_state_ = new_state;
+            state_changed = true;
         }
     }
 
-    if (pumpcontrol_state_ == state) {
+    if(state_changed){
         lock_guard<mutex> lock(callback_client_mutex_);
         if(callback_client_){
-            callback_client_->NewPumpControlState(pumpcontrol_state_);
+            callback_client_->NewPumpControlState(new_state);
         }
-    } else {
-        throw not_in_this_state("State switch not allowed.");
     }
 }
 
@@ -347,14 +397,12 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
 
     switch(state) {
         case TimeProgramRunnerCallback::TIME_PROGRAM_IDLE:
-        SetPumpControlState(PUMP_STATE_IDLE);
-        break;
+            SetPumpControlState(PUMP_STATE_IDLE);
+            break;
+        case TimeProgramRunnerCallback::TIME_PROGRAM_INIT:
         case TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE:
-        SetPumpControlState(PUMP_STATE_ACTIVE);
-        break;
-        default:
-        //do nothing
-        break;
+        case TimeProgramRunnerCallback::TIME_PROGRAM_STOPPING:
+            break;
     }
 }
 
@@ -443,6 +491,7 @@ void PumpControl::StartPumpTimed(size_t pump_number, float rel_current, float du
 
 
 void PumpControl::EnterServiceMode(){
+    lock_guard<mutex> lock(state_mutex_);
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_SERVICE);
     } else {
@@ -451,6 +500,7 @@ void PumpControl::EnterServiceMode(){
 }
 
 void PumpControl::LeaveServiceMode(){
+    lock_guard<mutex> lock(state_mutex_);
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_IDLE);
     } else {

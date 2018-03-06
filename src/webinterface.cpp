@@ -229,6 +229,8 @@ void WebInterface::HandleStartProgram(const string& product_id, const string& pr
         }
     } catch(PumpControlInterface::not_in_this_state&) {
         response.Set(500, "Wrong state for starting a program");
+    } catch(PumpControlInterface::start_while_active&) {
+        response.Set(423, "Start while other program is already active");
     } catch(out_of_range& e) {
         response.Set(500, e.what());
     } catch(logic_error&) {
