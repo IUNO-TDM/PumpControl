@@ -398,7 +398,7 @@ void WebInterface::HandleGetValue(const std::string& name, HttpResponse& respons
     LOG(DEBUG)<< "Getting io value for '" << name << "' ...";
     try {
         bool value = pump_control_->GetValue(name);
-        response.Set(200, value?"true":"false");
+        response.Set(200, value?"on":"off");
         LOG(DEBUG)<< "Got input/output value " << value << " for '" << name << "'.";
     } catch(out_of_range&) {
         stringstream ss;
