@@ -150,26 +150,35 @@ void IoDriverGpio::DeInit(){
 }
 
 void IoDriverGpio::PollLoop(){
-    for(auto i : gpios_){
+    bool exit_now = false;
+
+    for(auto& i : gpios_){
         switch(i.second.type_){
             case OUTPUT:
                 break;
             case INPUT:
             case INPUT_PULLDOWN:
-            case INPUT_PULLUP:
-                client_->NewInputState(i.first.c_str(), i.second.current_value_);
+            case INPUT_PULLUP:{
+                int r=gpioRead(i.second.pin_);
+                if(r < 0){
+                    LOG(ERROR)<< "Read from gpio at pin " << i.second.pin_ << " failed.";
+                    exit_now = true;
+                }
+                bool b = r;
+                i.second.current_value_=b;
+                client_->NewInputState(i.first.c_str(), b);
                 break;
+            }
         }
     }
 
-    bool exit_now = false;
     while(!exit_now){
         {
             unique_lock<mutex> lock(exit_mutex_);
             exit_now = (cv_status::no_timeout == exit_condition_.wait_for(lock, chrono::milliseconds(50)));
         }
         if(!exit_now){
-            for(auto i : gpios_){
+            for(auto& i : gpios_){
                 switch(i.second.type_){
                     case OUTPUT:
                         break;
