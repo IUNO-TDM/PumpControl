@@ -18,6 +18,7 @@ class IoDriverGpio: public IoDriverInterface {
             ACTIVE_LOW,
             ACTIVE_HIGH
         };
+
         IoDriverGpio();
         virtual ~IoDriverGpio();
 
@@ -36,9 +37,13 @@ class IoDriverGpio: public IoDriverInterface {
             GpioPolarity polarity_;
             bool current_value_;
         };
+
         void PollLoop();
         bool Read(const GpioDesc& gd, const std::string& name);
         void Write(GpioDesc& gd, bool value, const std::string& name);
+        static GpioType ParsePinType(const std::string& str);
+        static GpioPolarity ParsePolarity(const std::string& str);
+
         std::map<std::string, GpioDesc> gpios_;
         IoDriverCallback* client_;
         bool gpio_initialized_;

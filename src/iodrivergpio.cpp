@@ -7,33 +7,7 @@
 using namespace std;
 using namespace nlohmann;
 
-IoDriverGpio::GpioType parse_pin_type(const string& str){
-    IoDriverGpio::GpioType t;
-     if (str == "output"){
-        t = IoDriverGpio::OUTPUT;
-    } else if (str == "input") {
-        t = IoDriverGpio::INPUT;
-    } else if (str == "input_pullup") {
-        t = IoDriverGpio::INPUT_PULLUP;
-    } else if (str == "input_pulldown") {
-        t = IoDriverGpio::INPUT_PULLDOWN;
-    } else {
-        throw invalid_argument("invalid pin type");
-    }
-    return t;
-}
 
-IoDriverGpio::GpioPolarity parse_polarity(const string& str){
-    IoDriverGpio::GpioPolarity p;
-    if (str == "active_low"){
-       p = IoDriverGpio::ACTIVE_LOW;
-   } else if (str == "active_high") {
-       p = IoDriverGpio::ACTIVE_HIGH;
-   } else {
-       throw invalid_argument("invalid polarity value");
-   }
-   return p;
-}
 
 
 IoDriverGpio::IoDriverGpio():client_(NULL), gpio_initialized_(false), poll_thread_(NULL){
@@ -75,8 +49,8 @@ bool IoDriverGpio::Init(const char* config_text){
                 GpioDesc gd;
                 string pin_type = config_json[i]["type"];
                 string polarity = config_json[i]["polarity"];
-                gd.type_=parse_pin_type(pin_type);
-                gd.polarity_=parse_polarity(polarity);
+                gd.type_=ParsePinType(pin_type);
+                gd.polarity_=ParsePolarity(polarity);
                 gd.pin_=config_json[i]["pin"];
                 for(size_t j=0; j<i; j++){
                     if(pins_used[j] == gd.pin_){
@@ -303,6 +277,32 @@ void IoDriverGpio::Write(GpioDesc& gd, bool value, const string& name){
     gd.current_value_ = value;
 }
 
+IoDriverGpio::GpioType IoDriverGpio::ParsePinType(const string& str){
+    IoDriverGpio::GpioType t;
+     if (str == "output"){
+        t = IoDriverGpio::OUTPUT;
+    } else if (str == "input") {
+        t = IoDriverGpio::INPUT;
+    } else if (str == "input_pullup") {
+        t = IoDriverGpio::INPUT_PULLUP;
+    } else if (str == "input_pulldown") {
+        t = IoDriverGpio::INPUT_PULLDOWN;
+    } else {
+        throw invalid_argument("invalid pin type");
+    }
+    return t;
+}
 
+IoDriverGpio::GpioPolarity IoDriverGpio::ParsePolarity(const string& str){
+    IoDriverGpio::GpioPolarity p;
+    if (str == "active_low"){
+       p = IoDriverGpio::ACTIVE_LOW;
+   } else if (str == "active_high") {
+       p = IoDriverGpio::ACTIVE_HIGH;
+   } else {
+       throw invalid_argument("invalid polarity value");
+   }
+   return p;
+}
 
 
