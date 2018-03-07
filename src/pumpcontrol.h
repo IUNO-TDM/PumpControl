@@ -20,7 +20,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
     public:
         PumpControl(PumpDriverInterface* pump_driver,
                 std::map<int, PumpDefinition> pump_configurations,
-                IoDriverInterface* io_driver);
+                IoDriverInterface* io_driver,
+                float amount_override);
 
         virtual ~PumpControl();
 
@@ -84,6 +85,8 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
 
         std::map<int, float> pump_amount_map_;
         std::map<int, FlowLog> flow_logs_;
+
+        float amount_override_;
 
         boost::bimap<int, std::string> pump_ingredients_bimap_;
         

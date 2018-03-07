@@ -21,10 +21,12 @@ using namespace nlohmann;
 
 PumpControl::PumpControl(PumpDriverInterface* pump_driver,
         map<int, PumpDefinition> pump_definitions,
-        IoDriverInterface* io_driver) :
+        IoDriverInterface* io_driver,
+        float amount_override) :
     pumpdriver_(pump_driver),
     pump_definitions_(pump_definitions),
-    io_driver_(io_driver){
+    io_driver_(io_driver),
+    amount_override_(amount_override){
 
     for (auto i : kPumpIngredientsInit) {
         pump_ingredients_bimap_.insert(boost::bimap<int, string>::value_type(i.first, i.second));
@@ -172,7 +174,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                 case TIMING_ALL_FAST_START_PARALLEL: {
                     for(auto component: line["components"].get<vector<json>>()) {
                         string ingredient = component["ingredient"].get<string>();
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
                         float max_flow = pump_definitions_[pump_number].max_flow;
                         timeprogram[time][pump_number] = max_flow;
@@ -191,7 +193,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                     map<int, float> min_time_map;
                     map<int, float> max_time_map;
                     for(auto component: component_vector) {
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         string ingredient = component["ingredient"].get<string>();
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
                         float max_flow = pump_definitions_[pump_number].max_flow;
@@ -220,7 +222,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                     int end_time = time + (int)max_duration;
                     for(auto component: component_vector) {
                         string ingredient = component["ingredient"].get<string>();
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
 
                         if(find(separated_pumps.begin(), separated_pumps.end(), pump_number) != separated_pumps.end() ||
@@ -241,7 +243,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                 case TIMING_SEQUENTIAL: {
                     for(auto component: line["components"].get<vector<json>>()) {
                         string ingredient = component["ingredient"].get<string>();
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
                         float max_flow = pump_definitions_[pump_number].max_flow;
                         timeprogram[time][pump_number] = max_flow;

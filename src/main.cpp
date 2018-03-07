@@ -106,6 +106,7 @@ int main(int argc, char* argv[]) {
         DriverType driver_type;
         IoType io_type;
         int tcp_port;
+        float amount_override;
         string driver_config_string;
         string io_config_string;
         string config_file;
@@ -125,6 +126,7 @@ int main(int argc, char* argv[]) {
                     ("driver-config", value<string>(&driver_config_string)->default_value(""), "a configuration string specific to the driver")
                     ("io", value<IoType>(&io_type)->default_value(IOSIMULATION), "the io driver to be used, one of [simulation|gpio]")
                     ("io-config", value<string>(&io_config_string)->default_value(""), "a configuration string specific to the io driver")
+                    ("amount-override", value<float>(&amount_override)->default_value(1.0f), "an override to scale the amounts given in recipes")
                     ("tcp-port", value<int>(&tcp_port)->default_value(9002), "the port the web interface is listening at");
 
             options_description pump_config("PumpConfiguration");
@@ -235,7 +237,7 @@ int main(int argc, char* argv[]) {
                 pump_driver_initialized= pump_driver->Init(driver_config_string.c_str());
                 io_driver_initialized= io_driver->Init(io_config_string.c_str());
                 if(pump_driver_initialized) {
-                    PumpControl pump_control(pump_driver, pump_definitions, io_driver);
+                    PumpControl pump_control(pump_driver, pump_definitions, io_driver, amount_override);
                     WebInterface web_interface(tcp_port, &pump_control);
 
                     while(!sig_term_got){
