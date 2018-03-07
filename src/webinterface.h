@@ -71,12 +71,12 @@ class WebInterface : public PumpControlCallback{
         int port_;
 
         std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > connections_;
-        std::mutex connection_mutex_;
+        std::recursive_mutex connection_mutex_;
 
         PumpControlInterface* pump_control_ = NULL;
 
         std::map<std::string, std::string> states_;
-        std::mutex states_mutex_;
+        std::recursive_mutex states_mutex_;
 };
 
 #endif

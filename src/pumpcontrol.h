@@ -71,14 +71,14 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         void PumpDriverAmountWarning(int pump_number, int amount_left);
 
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
-        std::mutex state_mutex_;
+        std::recursive_mutex state_mutex_;
         PumpDriverInterface* pumpdriver_ = NULL;
         std::map<int, PumpDefinition> pump_definitions_;
 
         IoDriverInterface* io_driver_;
 
         PumpControlCallback* callback_client_ = NULL;
-        std::mutex callback_client_mutex_;
+        std::recursive_mutex callback_client_mutex_;
 
         TimeProgramRunner* timeprogramrunner_ = NULL;
         TimeProgramRunner::TimeProgram timeprogram_;

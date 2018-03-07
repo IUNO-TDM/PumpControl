@@ -54,7 +54,7 @@ void WebInterface::NewPumpControlState(PumpControlInterface::PumpControlState st
     json_message["mode"] = PumpControlInterface::NameForPumpControlState(state);
     string str_message = json_message.dump();
     {
-        lock_guard<mutex> guard(states_mutex_);
+        lock_guard<recursive_mutex> guard(states_mutex_);
         states_["pump_control_state"] = str_message;
     }
     SendMessage(str_message);
@@ -103,7 +103,7 @@ void WebInterface::NewInputState(const char* name, bool value) {
     statename+=name;
     string str_message = json_message.dump();
     {
-        lock_guard<mutex> guard(states_mutex_);
+        lock_guard<recursive_mutex> guard(states_mutex_);
         states_[statename] = str_message;
     }
     SendMessage(str_message);
@@ -111,12 +111,12 @@ void WebInterface::NewInputState(const char* name, bool value) {
 
 void WebInterface::OnOpen(connection_hdl hdl) {
     {
-        lock_guard<mutex> guard(connection_mutex_);
+        lock_guard<recursive_mutex> guard(connection_mutex_);
         LOG(DEBUG)<< "WebInterface onOpen";
         connections_.insert(hdl);
     }
     {
-        lock_guard<mutex> guard(states_mutex_);
+        lock_guard<recursive_mutex> guard(states_mutex_);
         for(auto s : states_){
             SendMessage(s.second);
         }
@@ -124,7 +124,7 @@ void WebInterface::OnOpen(connection_hdl hdl) {
 }
 
 void WebInterface::OnClose(connection_hdl hdl) {
-    lock_guard<mutex> guard(connection_mutex_);
+    lock_guard<recursive_mutex> guard(connection_mutex_);
     LOG(DEBUG)<< "WebInterface onClose";
     connections_.erase(hdl);
 }
@@ -426,7 +426,7 @@ void WebInterface::HandleSetValue(const std::string& name, const std::string& va
 }
 
 void WebInterface::SendMessage(const string& message) {
-    lock_guard<mutex> guard(connection_mutex_);
+    lock_guard<recursive_mutex> guard(connection_mutex_);
     LOG(DEBUG)<< "WebInterface send message: " << message;
 
     for (auto con : connections_) {

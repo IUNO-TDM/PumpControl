@@ -53,7 +53,7 @@ PumpControl::~PumpControl() {
 }
 
 void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if( !callback_client_ ){
         callback_client_ = client;
         callback_client_->NewPumpControlState(pumpcontrol_state_);
@@ -64,7 +64,7 @@ void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
 }
 
 void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if( callback_client_ == client ){
         io_driver_->UnregisterCallbackClient(this);
         callback_client_ = NULL;
@@ -266,7 +266,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
     } catch(const exception& ex) {
         LOG(ERROR)<<"Failed to create timeprogram: "<<ex.what();
         time = -1;
-        lock_guard<mutex> lock(callback_client_mutex_);
+        lock_guard<recursive_mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->Error("TimeProgramParseError", 1, ex.what());
         }
@@ -322,7 +322,7 @@ void PumpControl::SetPumpControlState(PumpControlState state) {
     PumpControlState new_state;
     bool state_changed = false;
     {
-        lock_guard<mutex> lock(state_mutex_);
+        lock_guard<recursive_mutex> lock(state_mutex_);
 
         switch (pumpcontrol_state_) {
             case PUMP_STATE_ACTIVE:
@@ -384,7 +384,7 @@ void PumpControl::SetPumpControlState(PumpControlState state) {
     }
 
     if(state_changed){
-        lock_guard<mutex> lock(callback_client_mutex_);
+        lock_guard<recursive_mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->NewPumpControlState(new_state);
         }
@@ -393,7 +393,7 @@ void PumpControl::SetPumpControlState(PumpControlState state) {
 
 void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
     LOG(DEBUG)<< "TimeProgramRunnerProgressUpdate " << percent << " : " << id;
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if(callback_client_){
         callback_client_->ProgressUpdate(id, percent);
     }
@@ -416,7 +416,7 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
 void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     LOG(DEBUG)<< "TimeProgramRunnerProgramEnded" << id;
     {
-        lock_guard<mutex> lock(callback_client_mutex_);
+        lock_guard<recursive_mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->ProgramEnded(id);
         }
@@ -427,7 +427,7 @@ void PumpControl::TimeProgramRunnerProgramEnded(string id) {
 void PumpControl::PumpDriverAmountWarning(int pump_number, int amountWarningLimit) {
     string ingredient = pump_ingredients_bimap_.left.at(pump_number);
     LOG(DEBUG)<< "PumpDriverAmountWarning: number:" << pump_number << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if(callback_client_){
         callback_client_->AmountWarning(pump_number, ingredient, amountWarningLimit);
     }
@@ -498,7 +498,7 @@ void PumpControl::StartPumpTimed(size_t pump_number, float rel_current, float du
 
 
 void PumpControl::EnterServiceMode(){
-    lock_guard<mutex> lock(state_mutex_);
+    lock_guard<recursive_mutex> lock(state_mutex_);
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_SERVICE);
     } else {
@@ -507,7 +507,7 @@ void PumpControl::EnterServiceMode(){
 }
 
 void PumpControl::LeaveServiceMode(){
-    lock_guard<mutex> lock(state_mutex_);
+    lock_guard<recursive_mutex> lock(state_mutex_);
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_IDLE);
     } else {
@@ -610,7 +610,7 @@ void PumpControl::SetValue(const string& name, bool value) {
 }
 
 void PumpControl::NewInputState(const char* name, bool value) {
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if(callback_client_){
         callback_client_->NewInputState(name, value);
     }
