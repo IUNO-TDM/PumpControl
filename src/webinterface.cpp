@@ -233,8 +233,8 @@ void WebInterface::HandleStartProgram(const string& product_id, const string& pr
         response.Set(423, "Start while other program is already active");
     } catch(out_of_range& e) {
         response.Set(500, e.what());
-    } catch(logic_error&) {
-        response.Set(500, "Program parse error");
+    } catch(logic_error& e) {
+        response.Set(500, string("Program parse error: '") + e.what() + "'.");
     }
 }
 

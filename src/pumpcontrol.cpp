@@ -86,15 +86,20 @@ void PumpControl::StartProgram(unsigned long product_id, const string& in) {
                 // this isn't json, so it should be base64 containing an encrypted recipe
                 // scope also minimizes lifetime of recipe_buffer
                 CryptoBuffer recipe_buffer;
-                DecryptProgram(product_id, in, recipe_buffer);
+                try{
+                    DecryptProgram(product_id, in, recipe_buffer);
+                }catch(exception& e){
+                    LOG(ERROR)<< "Could not decrypt program. Reason: '" << e.what() << "'.";
+                    throw invalid_argument(e.what());
+                }
                 try {
                     recipe_json = json::parse(string(recipe_buffer.c_str()));
                     recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
                     LOG(DEBUG)<< "Got a valid json string.";
-                } catch (logic_error& ex) {
+                } catch (logic_error& e) {
                     recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
-                    LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
-                    throw invalid_argument(ex.what());
+                    LOG(ERROR)<< "Got an invalid json string. Reason: '" << e.what() << "'.";
+                    throw invalid_argument(e.what());
                 }
             }
             else
