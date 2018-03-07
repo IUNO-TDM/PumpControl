@@ -334,17 +334,17 @@ void WebInterface::HandleLeaveServiceMode(HttpResponse& response){
 }
 
 void WebInterface::HandleSwitchPump(const string& pump_number_string, const string& on_off, HttpResponse& response){
-    LOG(DEBUG)<< "Switching pump " << pump_number_string << " to " << (on_off=="true"?"on":"off");
+    LOG(DEBUG)<< "Switching pump " << pump_number_string << " to " << on_off;
     int pump_number = stoi(pump_number_string);
     try {
-        float new_flow = pump_control_->SwitchPump(pump_number, (on_off=="true"));
+        float new_flow = pump_control_->SwitchPump(pump_number, (on_off=="on"));
         response.response_code = 200;
         response.response_message = "SUCCESS";
         json json_message = json::object();
         json_message["service"]["pump"] = pump_number;
         json_message["service"]["flow"] = new_flow;
         SendMessage(json_message.dump());
-        LOG(DEBUG)<< "Switched pump " << pump_number_string << " successfully to " << (on_off=="true"?"on":"off");
+        LOG(DEBUG)<< "Switched pump " << pump_number_string << " successfully to " << on_off;
     } catch(out_of_range&) {
         LOG(DEBUG)<< "Pump number " << pump_number << " can't be switched because it is out of range";
         response.Set(400, "Requested Pump not available");
