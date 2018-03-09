@@ -2,6 +2,9 @@ driver = simulation
 webSocketPort = 9002
 serialPort = /dev/tty.usbserial-A104W010
 
+io-config = [{"name":"start_button","pin":22,"type":"input_pullup","polarity":"active_low"},{"name":"start_button_illumination","pin":24,"type":"output","polarity":"active_high"},{"name":"cabinet_door_switch","pin":23,"type":"input_pullup","polarity":"active_low"},{"name":"juice_door_switch","pin":4,"type":"input_pullup","polarity":"active_low"}]
+
+
 [pump.1]
 pwm_value.0 = 0.2
 flow_value.0 = 0.0008
