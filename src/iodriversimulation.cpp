@@ -98,6 +98,7 @@ void IoDriverSimulation::Simulate(){
 }
 
 void IoDriverSimulation::GetDesc(vector<IoDescription>& desc) const {
+    desc.clear();
     IoDescription d;
     d.name_="cabinet_door_switch";
     d.type_ = IoDescription::INPUT;

@@ -202,6 +202,7 @@ void IoDriverGpio::UnregisterCallbackClient(IoDriverCallback* client){
 }
 
 void IoDriverGpio::GetDesc(std::vector<IoDescription>& desc) const {
+    desc.clear();
     for(auto io : gpios_){
         IoDescription d;
         d.name_=io.first;
