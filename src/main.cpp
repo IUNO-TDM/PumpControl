@@ -128,11 +128,7 @@ int main(int argc, char* argv[]) {
             config_options.add_options()
                     ("driver", value<DriverType>(&driver_type)->default_value(SIMULATION), "the driver to be used, one of [simulation|firmata|shield]")
                     ("driver-config", value<string>(&driver_config_string)->default_value(""), "a configuration string specific to the driver")
-#ifdef NO_REALDRIVERS
-                    ("io", value<IoType>(&io_type)->default_value(IOSIMULATION), "the io driver to be used, one of [simulation|gpio|none]")
-#else
                     ("io", value<IoType>(&io_type)->default_value(IONONE), "the io driver to be used, one of [simulation|gpio|none]")
-#endif
                     ("io-config", value<string>(&io_config_string)->default_value(""), "a configuration string specific to the io driver")
                     ("amount-override", value<float>(&amount_override)->default_value(1.0f), "an override to scale the amounts given in recipes")
                     ("tcp-port", value<int>(&tcp_port)->default_value(9002), "the port the web interface is listening at");
