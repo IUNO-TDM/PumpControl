@@ -22,12 +22,14 @@ class WebInterface : public PumpControlCallback{
         virtual void ProgramEnded(std::string id);
         virtual void AmountWarning(size_t pump_number, std::string ingredient, int warning_limit);
         virtual void Error(std::string error_type, int error_number, std::string details);
+        virtual void NewInputState(const char* name, bool value);
 
     private:
 
         struct HttpResponse {
                 int response_code;
                 std::string response_message;
+                std::string content_type_;
                 void Set(int code, const char* msg){
                     response_code=code;
                     response_message = msg;
@@ -35,6 +37,9 @@ class WebInterface : public PumpControlCallback{
                 void Set(int code, const std::string& msg){
                     response_code=code;
                     response_message = msg;
+                }
+                void SetContentType(const char* content_type){
+                    content_type_ = content_type;
                 }
         };
 
@@ -55,6 +60,9 @@ class WebInterface : public PumpControlCallback{
         void HandleLeaveServiceMode(HttpResponse& response);
         void HandleSwitchPump(const std::string& pump_number_string, const std::string& on_off, HttpResponse& response);
         void HandleStartPumpTimed(const std::string& pump_number_string, const std::string& current_string, const std::string& duration_string, HttpResponse& response);
+        void HandleGetIoDesc(HttpResponse& response);
+        void HandleGetValue(const std::string& name, HttpResponse& response);
+        void HandleSetValue(const std::string& name, const std::string& value_str, HttpResponse& response);
 
         void SendMessage(const std::string& message);
 
@@ -63,10 +71,12 @@ class WebInterface : public PumpControlCallback{
         int port_;
 
         std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl> > connections_;
-        std::mutex connection_mutex_;
+        std::recursive_mutex connection_mutex_;
 
         PumpControlInterface* pump_control_ = NULL;
-        PumpControlInterface::PumpControlState pump_control_state_ = PumpControlInterface::PUMP_STATE_UNINITIALIZED;
+
+        std::map<std::string, std::string> states_;
+        std::recursive_mutex states_mutex_;
 };
 
 #endif

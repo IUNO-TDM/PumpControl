@@ -47,6 +47,7 @@ SRCS := $(filter-out ./lib/firmatacpp/%,$(SRCS))
 SRCS := $(filter-out ./lib/serial/%,$(SRCS))
 SRCS := $(filter-out ./src/pumpdriverfirmata.cpp,$(SRCS))
 SRCS := $(filter-out ./src/pumpdrivershield.cpp,$(SRCS))
+SRCS := $(filter-out ./src/iodrivergpio.cpp,$(SRCS))
 endif
 
 OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)
@@ -95,7 +96,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp $(DOWNLOADED_FILES)
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-.PHONY: realclean clean all list-srcs
+.PHONY: realclean clean all list-srcs protect
 
 realclean:
 	$(RM) -r $(BUILD_DIR)
@@ -107,6 +108,9 @@ clean:
 
 list-srcs:
 	@echo $(SRCS)
+	
+protect: all ./private_src/pumpcontrol.wbc
+	AxProtectorLin @./private_src/pumpcontrol.wbc
 
 .PHONY: importLibs
 importLibs: $(DOWNLOADED_FILES)

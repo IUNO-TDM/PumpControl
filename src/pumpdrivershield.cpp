@@ -1,22 +1,12 @@
 #include "pumpdrivershield.h"
 #include "easylogging++.h"
-
-#ifdef OS_raspbian
-#include <pigpio.h> 
-#else
-int gpioInitialise(){return -1;}
-void gpioTerminate(){}
-int gpioSetPWMrange(unsigned, unsigned){return -1;}
-int gpioSetPWMfrequency(unsigned, unsigned){return -1;}
-int gpioPWM(unsigned, unsigned){return -1;}
-int gpioSetMode(unsigned, unsigned){return -1;}
-const unsigned PI_OUTPUT = 0;
-const unsigned PI_INPUT = 0;
-#endif
+#include "json.hpp"
+#include "gpioinithelper.h"
 
 using namespace std;
+using namespace nlohmann;
 
-const unsigned PumpDriverShield::pins_[] = {26,13,6,5,22,27,17,4};
+unsigned PumpDriverShield::pins_[] = {26,6,5,7,11,8,9,25}; // MotorShield V01
 const size_t PumpDriverShield::pump_count_ = sizeof(PumpDriverShield::pins_)/sizeof(PumpDriverShield::pins_[0]);
 
 PumpDriverShield::PumpDriverShield(){
@@ -28,7 +18,11 @@ PumpDriverShield::~PumpDriverShield(){
 bool PumpDriverShield::Init(const char* config_txt) {
     LOG(INFO)<< "Initializing PumpDriverShield";
 
-    int ec_initialize = gpioInitialise();
+    if(config_txt[0]){
+    	ParseConfigString(config_txt);
+    }
+
+    int ec_initialize = wrapGpioInitialise();
     bool rv = false;
 
     if(ec_initialize >= 0){
@@ -56,8 +50,60 @@ void PumpDriverShield::DeInit(){
             gpioPWM(pin, 0);
             gpioSetMode(pin, PI_INPUT);
         }
-        gpioTerminate();
+        wrapGpioTerminate();
     }
+}
+
+void PumpDriverShield::ParseConfigString(const char* config_text){
+    LOG(DEBUG)<< "Parsing config string for pump driver shield: '" << config_text << "' ...";
+	json config_json;
+    try {
+    	config_json = json::parse(string(config_text));
+    } catch (logic_error& ex) {
+        LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
+        throw invalid_argument(ex.what());
+    }
+
+    if(!config_json.is_array()){
+    	string msg("Got an invalid config string. Reason: The string does not contain an array.");
+        LOG(ERROR)<< msg;
+        throw invalid_argument(msg);
+    }
+
+    if(pump_count_ != config_json.size()){
+    	string msg("Got an invalid config string. Reason: The string does not contain wiring values for 8 pumps.");
+        LOG(ERROR)<< msg;
+        throw invalid_argument(msg);
+    }
+
+    for(size_t i=0; i<pump_count_; i++){
+    	if(!config_json[i].is_number_unsigned()){
+        	string msg("Got an invalid config string. Reason: The string contains something that isn't a pin number.");
+            LOG(ERROR)<< msg;
+            throw invalid_argument(msg);
+    	}
+    	unsigned pin = config_json[i];
+    	if((pin < 2) || (27 < pin)){
+        	string msg("Got an invalid config string. Reason: The string contains a pin number that is out of range.");
+            LOG(ERROR)<< msg;
+            throw invalid_argument(msg);
+    	}
+    }
+
+    for(size_t i=0; i<pump_count_; i++){
+        for(size_t j=i+1; j<pump_count_; j++){
+        	if(config_json[i] == config_json[j]){
+            	string msg("Got an invalid config string. Reason: The string contains a pin that is used multiply.");
+                LOG(ERROR)<< msg;
+                throw invalid_argument(msg);
+        	}
+        }
+    }
+
+    for(size_t i=0; i<pump_count_; i++){
+    	pins_[i]=config_json[i];
+    }
+    LOG(DEBUG)<< "Parsing config string for pump driver shield done.";
 }
 
 int PumpDriverShield::GetPumpCount(){

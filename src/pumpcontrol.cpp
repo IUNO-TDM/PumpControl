@@ -20,9 +20,13 @@ using namespace std;
 using namespace nlohmann;
 
 PumpControl::PumpControl(PumpDriverInterface* pump_driver,
-        map<int, PumpDefinition> pump_definitions) :
+        map<int, PumpDefinition> pump_definitions,
+        IoDriverInterface* io_driver,
+        float amount_override) :
     pumpdriver_(pump_driver),
-    pump_definitions_(pump_definitions) {
+    pump_definitions_(pump_definitions),
+    io_driver_(io_driver),
+    amount_override_(amount_override){
 
     for (auto i : kPumpIngredientsInit) {
         pump_ingredients_bimap_.insert(boost::bimap<int, string>::value_type(i.first, i.second));
@@ -49,18 +53,20 @@ PumpControl::~PumpControl() {
 }
 
 void PumpControl::RegisterCallbackClient(PumpControlCallback* client) {
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if( !callback_client_ ){
         callback_client_ = client;
         callback_client_->NewPumpControlState(pumpcontrol_state_);
+        io_driver_->RegisterCallbackClient(this);
     }else{
         throw logic_error("Tried to register a client where already one is registered");
     }
 }
 
 void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if( callback_client_ == client ){
+        io_driver_->UnregisterCallbackClient(this);
         callback_client_ = NULL;
     }else{
         throw logic_error("Tried to unregister a client that isn't registered");
@@ -68,57 +74,71 @@ void PumpControl::UnregisterCallbackClient(PumpControlCallback* client) {
 }
 
 void PumpControl::StartProgram(unsigned long product_id, const string& in) {
-    int max_time = 0;
-    { // scope for minimized life time of recipe_json
-        json recipe_json;
-#ifndef NO_ENCRYPTION
-        // check for characters that must exist in json and must not exist in base64
-        if((in.find("{") == string::npos) && (in.find("}") == string::npos))
-        {
-        	// this isn't json, so it should be base64 containing an encrypted recipe
-        	// scope also minimizes lifetime of recipe_buffer
-            CryptoBuffer recipe_buffer;
-            DecryptProgram(product_id, in, recipe_buffer);
-            try {
-                recipe_json = json::parse(string(recipe_buffer.c_str()));
-                recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
-                LOG(DEBUG)<< "Got a valid json string.";
-            } catch (logic_error& ex) {
-                recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
-                LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
-                throw invalid_argument(ex.what());
-            }
-        }
-        else
-        {
-        	// this isn't base64, so it should be an unencrypted recipe
-            try {
-                recipe_json = json::parse(in);
-                LOG(DEBUG)<< "Got a valid, non-encrypted json string.";
-            } catch (logic_error& ex) {
-                LOG(ERROR)<< "Got an invalid, non-encrypted json string. Reason: '" << ex.what() << "'.";
-                throw invalid_argument(ex.what());
-            }
-        }
-#else
-        {
-            try {
-                recipe_json = json::parse(in);
-                LOG(DEBUG)<< "Got a valid json string.";
-            } catch (logic_error& ex) {
-                LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
-                throw invalid_argument(ex.what());
-            }
-        }
-#endif
-        CheckIngredients(recipe_json["recipe"]);
-        max_time = CreateTimeProgram(recipe_json["recipe"], timeprogram_);
-    }
 
-    if (max_time > 0) {
-        SetPumpControlState(PUMP_STATE_ACTIVE);
-        LOG(DEBUG)<< "Successfully imported recipe for product code " << product_id << ".";
-        timeprogramrunner_->StartProgram("no order name", timeprogram_);
+    SetPumpControlState(PUMP_STATE_ACTIVE);
+
+    try{
+        int max_time = 0;
+        { // scope for minimized life time of recipe_json
+            json recipe_json;
+#ifndef NO_ENCRYPTION
+            // check for characters that must exist in json and must not exist in base64
+            if((in.find("{") == string::npos) && (in.find("}") == string::npos))
+            {
+                // this isn't json, so it should be base64 containing an encrypted recipe
+                // scope also minimizes lifetime of recipe_buffer
+                CryptoBuffer recipe_buffer;
+                try{
+                    DecryptProgram(product_id, in, recipe_buffer);
+                }catch(exception& e){
+                    LOG(ERROR)<< "Could not decrypt program. Reason: '" << e.what() << "'.";
+                    throw invalid_argument(e.what());
+                }
+                try {
+                    recipe_json = json::parse(string(recipe_buffer.c_str()));
+                    recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
+                    LOG(DEBUG)<< "Got a valid json string.";
+                } catch (logic_error& e) {
+                    recipe_buffer.clear(); // clear before logging, logging could be made to block on stdout
+                    LOG(ERROR)<< "Got an invalid json string. Reason: '" << e.what() << "'.";
+                    throw invalid_argument(e.what());
+                }
+            }
+            else
+            {
+                // this isn't base64, so it should be an unencrypted recipe
+                try {
+                    recipe_json = json::parse(in);
+                    LOG(DEBUG)<< "Got a valid, non-encrypted json string.";
+                } catch (logic_error& ex) {
+                    LOG(ERROR)<< "Got an invalid, non-encrypted json string. Reason: '" << ex.what() << "'.";
+                    throw invalid_argument(ex.what());
+                }
+            }
+#else
+            {
+                try {
+                    recipe_json = json::parse(in);
+                    LOG(DEBUG)<< "Got a valid json string.";
+                } catch (logic_error& ex) {
+                    LOG(ERROR)<< "Got an invalid json string. Reason: '" << ex.what() << "'.";
+                    throw invalid_argument(ex.what());
+                }
+            }
+#endif
+            CheckIngredients(recipe_json["recipe"]);
+            max_time = CreateTimeProgram(recipe_json["recipe"], timeprogram_);
+        }
+
+        if (max_time > 0) {
+            LOG(DEBUG)<< "Successfully imported recipe for product code " << product_id << ".";
+            timeprogramrunner_->StartProgram("no order name", timeprogram_);
+        }else{
+            SetPumpControlState(PUMP_STATE_IDLE);
+        }
+    }catch(...){
+        SetPumpControlState(PUMP_STATE_ERROR);
+        throw;
     }
 }
 
@@ -154,7 +174,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                 case TIMING_ALL_FAST_START_PARALLEL: {
                     for(auto component: line["components"].get<vector<json>>()) {
                         string ingredient = component["ingredient"].get<string>();
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
                         float max_flow = pump_definitions_[pump_number].max_flow;
                         timeprogram[time][pump_number] = max_flow;
@@ -173,7 +193,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                     map<int, float> min_time_map;
                     map<int, float> max_time_map;
                     for(auto component: component_vector) {
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         string ingredient = component["ingredient"].get<string>();
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
                         float max_flow = pump_definitions_[pump_number].max_flow;
@@ -202,7 +222,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                     int end_time = time + (int)max_duration;
                     for(auto component: component_vector) {
                         string ingredient = component["ingredient"].get<string>();
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
 
                         if(find(separated_pumps.begin(), separated_pumps.end(), pump_number) != separated_pumps.end() ||
@@ -223,7 +243,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
                 case TIMING_SEQUENTIAL: {
                     for(auto component: line["components"].get<vector<json>>()) {
                         string ingredient = component["ingredient"].get<string>();
-                        int amount = component["amount"].get<int>();
+                        int amount = (amount_override_*(float)component["amount"].get<int>()+0.5);
                         int pump_number = pump_ingredients_bimap_.right.at(ingredient);
                         float max_flow = pump_definitions_[pump_number].max_flow;
                         timeprogram[time][pump_number] = max_flow;
@@ -246,7 +266,7 @@ int PumpControl::CreateTimeProgram(json j, TimeProgramRunner::TimeProgram &timep
     } catch(const exception& ex) {
         LOG(ERROR)<<"Failed to create timeprogram: "<<ex.what();
         time = -1;
-        lock_guard<mutex> lock(callback_client_mutex_);
+        lock_guard<recursive_mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->Error("TimeProgramParseError", 1, ex.what());
         }
@@ -299,40 +319,81 @@ void PumpControl::SeparateTooFastIngredients(vector<int>& separated_pumps, map<i
 
 void PumpControl::SetPumpControlState(PumpControlState state) {
     LOG(DEBUG)<< "SetPumpControlState: " << PumpControlInterface::NameForPumpControlState(state);
-    if (pumpcontrol_state_ != state) {
-        switch (state) {
+    PumpControlState new_state;
+    bool state_changed = false;
+    {
+        lock_guard<recursive_mutex> lock(state_mutex_);
+
+        switch (pumpcontrol_state_) {
             case PUMP_STATE_ACTIVE:
-                if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
-                    pumpcontrol_state_ = state;
+                switch(state){
+                    case PUMP_STATE_IDLE:
+                    case PUMP_STATE_ERROR:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_ACTIVE:
+                        throw start_while_active("start while other program is already active.");
+                    case PUMP_STATE_SERVICE:
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
                 }
                 break;
             case PUMP_STATE_SERVICE:
-                if (pumpcontrol_state_ == PUMP_STATE_IDLE) {
-                    pumpcontrol_state_ = state;
+                switch(state){
+                    case PUMP_STATE_IDLE:
+                    case PUMP_STATE_ERROR:
+                    case PUMP_STATE_SERVICE:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_ACTIVE:
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
                 }
                 break;
             case PUMP_STATE_IDLE:
             case PUMP_STATE_ERROR:
-                pumpcontrol_state_ = state;
+                switch(state){
+                    case PUMP_STATE_ACTIVE:
+                    case PUMP_STATE_IDLE:
+                    case PUMP_STATE_ERROR:
+                    case PUMP_STATE_SERVICE:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
+                }
                 break;
             case PUMP_STATE_UNINITIALIZED:
+                switch(state){
+                    case PUMP_STATE_IDLE:
+                        new_state = state;
+                        break;
+                    case PUMP_STATE_ERROR:
+                    case PUMP_STATE_SERVICE:
+                    case PUMP_STATE_ACTIVE:
+                    case PUMP_STATE_UNINITIALIZED:
+                        throw not_in_this_state("State switch not allowed.");
+                }
                 break;
+        }
+
+        if(new_state != pumpcontrol_state_){
+            pumpcontrol_state_ = new_state;
+            state_changed = true;
         }
     }
 
-    if (pumpcontrol_state_ == state) {
-        lock_guard<mutex> lock(callback_client_mutex_);
+    if(state_changed){
+        lock_guard<recursive_mutex> lock(callback_client_mutex_);
         if(callback_client_){
-            callback_client_->NewPumpControlState(pumpcontrol_state_);
+            callback_client_->NewPumpControlState(new_state);
         }
-    } else {
-        throw not_in_this_state("State switch not allowed.");
     }
 }
 
 void PumpControl::TimeProgramRunnerProgressUpdate(string id, int percent) {
     LOG(DEBUG)<< "TimeProgramRunnerProgressUpdate " << percent << " : " << id;
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if(callback_client_){
         callback_client_->ProgressUpdate(id, percent);
     }
@@ -343,21 +404,19 @@ void PumpControl::TimeProgramRunnerStateUpdate(TimeProgramRunnerCallback::State 
 
     switch(state) {
         case TimeProgramRunnerCallback::TIME_PROGRAM_IDLE:
-        SetPumpControlState(PUMP_STATE_IDLE);
-        break;
+            SetPumpControlState(PUMP_STATE_IDLE);
+            break;
+        case TimeProgramRunnerCallback::TIME_PROGRAM_INIT:
         case TimeProgramRunnerCallback::TIME_PROGRAM_ACTIVE:
-        SetPumpControlState(PUMP_STATE_ACTIVE);
-        break;
-        default:
-        //do nothing
-        break;
+        case TimeProgramRunnerCallback::TIME_PROGRAM_STOPPING:
+            break;
     }
 }
 
 void PumpControl::TimeProgramRunnerProgramEnded(string id) {
     LOG(DEBUG)<< "TimeProgramRunnerProgramEnded" << id;
     {
-        lock_guard<mutex> lock(callback_client_mutex_);
+        lock_guard<recursive_mutex> lock(callback_client_mutex_);
         if(callback_client_){
             callback_client_->ProgramEnded(id);
         }
@@ -368,7 +427,7 @@ void PumpControl::TimeProgramRunnerProgramEnded(string id) {
 void PumpControl::PumpDriverAmountWarning(int pump_number, int amountWarningLimit) {
     string ingredient = pump_ingredients_bimap_.left.at(pump_number);
     LOG(DEBUG)<< "PumpDriverAmountWarning: number:" << pump_number << " ingredient: " << ingredient << " Amount warning level: " << amountWarningLimit;
-    lock_guard<mutex> lock(callback_client_mutex_);
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
     if(callback_client_){
         callback_client_->AmountWarning(pump_number, ingredient, amountWarningLimit);
     }
@@ -439,6 +498,7 @@ void PumpControl::StartPumpTimed(size_t pump_number, float rel_current, float du
 
 
 void PumpControl::EnterServiceMode(){
+    lock_guard<recursive_mutex> lock(state_mutex_);
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_SERVICE);
     } else {
@@ -447,6 +507,7 @@ void PumpControl::EnterServiceMode(){
 }
 
 void PumpControl::LeaveServiceMode(){
+    lock_guard<recursive_mutex> lock(state_mutex_);
     if((pumpcontrol_state_ == PUMP_STATE_IDLE)||(pumpcontrol_state_ == PUMP_STATE_SERVICE)){
         SetPumpControlState(PUMP_STATE_IDLE);
     } else {
@@ -536,6 +597,26 @@ void PumpControl::DecryptProgram(unsigned long product_id, const string& in, Cry
     ERR_free_strings();
 }
 #endif
+
+void PumpControl::GetIoDesc(vector<IoDescription>& desc) const{
+    io_driver_->GetDesc(desc);
+}
+
+bool PumpControl::GetValue(const string& name) const {
+    return io_driver_->GetValue(name);
+}
+void PumpControl::SetValue(const string& name, bool value) {
+    io_driver_->SetValue(name, value);
+}
+
+void PumpControl::NewInputState(const char* name, bool value) {
+    lock_guard<recursive_mutex> lock(callback_client_mutex_);
+    if(callback_client_){
+        callback_client_->NewInputState(name, value);
+    }
+}
+
+
 
 
 

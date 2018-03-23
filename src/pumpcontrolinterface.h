@@ -1,6 +1,7 @@
 #ifndef PUMPCONTROLINTERFACE_H
 #define PUMPCONTROLINTERFACE_H
 
+#include "iodescription.h"
 #include "pumpdriverinterface.h"
 #include <string>
 #include <unistd.h>
@@ -12,6 +13,10 @@ class PumpControlInterface {
         class not_in_this_state : public std::logic_error {
             public:
               explicit not_in_this_state (const std::string& what_arg) : std::logic_error(what_arg){}
+        };
+        class start_while_active : public std::logic_error {
+            public:
+              explicit start_while_active (const std::string& what_arg) : std::logic_error(what_arg){}
         };
 
         static const size_t lookup_table_entry_count = 10;
@@ -77,6 +82,9 @@ class PumpControlInterface {
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string) = 0;
         virtual void EnterServiceMode() = 0;
         virtual void LeaveServiceMode() = 0;
+        virtual void GetIoDesc(std::vector<IoDescription>& desc) const = 0;
+        virtual bool GetValue(const std::string& name) const = 0;
+        virtual void SetValue(const std::string& name, bool value) = 0;
 };
 
 #endif

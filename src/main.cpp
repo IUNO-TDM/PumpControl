@@ -3,6 +3,9 @@
 #include "pumpdriversimulation.h"
 #include "pumpdriverfirmata.h"
 #include "pumpdrivershield.h"
+#include "iodriversimulation.h"
+#include "iodrivernone.h"
+#include "iodrivergpio.h"
 
 #include "easylogging++.h"
 
@@ -30,6 +33,14 @@ enum DriverType{
 #endif
 };
 
+enum IoType{
+    IOSIMULATION,
+    IONONE,
+#ifndef NO_REALDRIVERS
+    GPIO
+#endif
+};
+
 istream& operator>> (istream&in, DriverType& driver){
     string token;
     in >> token;
@@ -48,6 +59,24 @@ istream& operator>> (istream&in, DriverType& driver){
     return in;
 }
 
+istream& operator>> (istream&in, IoType& io_type){
+    string token;
+    in >> token;
+
+    if (token == "simulation"){
+        io_type = IOSIMULATION;
+    } else if (token == "none") {
+        io_type = IONONE;
+#ifndef NO_REALDRIVERS
+    } else if (token == "gpio") {
+        io_type = GPIO;
+#endif
+    } else {
+        throw validation_error (validation_error::invalid_option_value, "invalid io type");
+    }
+    return in;
+}
+
 int main(int argc, char* argv[]) {
 
     LOG(INFO)<< "PumpControl starting up.";
@@ -58,6 +87,7 @@ int main(int argc, char* argv[]) {
     sigfillset(&mask);
     sigdelset(&mask, SIGTERM);
     sigdelset(&mask, SIGTSTP);
+    sigdelset(&mask, SIGINT);
     pthread_sigmask(SIG_SETMASK, &mask, NULL);
 
     struct sigaction sa;
@@ -68,13 +98,21 @@ int main(int argc, char* argv[]) {
 
     bool sigterm_installed = (0 == sigaction(SIGTERM, &sa, &so));
     if(!sigterm_installed){
-        LOG(WARNING) << "Could not install terminate handler.";
+        LOG(WARNING) << "Could not install terminate handler for SIGTERM.";
+    }
+
+    bool sigint_installed = (0 == sigaction(SIGINT, &sa, &so));
+    if(!sigint_installed){
+        LOG(WARNING) << "Could not install terminate handler for SIGINT.";
     }
 
     {
         DriverType driver_type;
+        IoType io_type;
         int tcp_port;
+        float amount_override;
         string driver_config_string;
+        string io_config_string;
         string config_file;
         string homeDir = getenv("HOME");
         map<int, PumpControlInterface::PumpDefinition> pump_definitions;
@@ -90,6 +128,9 @@ int main(int argc, char* argv[]) {
             config_options.add_options()
                     ("driver", value<DriverType>(&driver_type)->default_value(SIMULATION), "the driver to be used, one of [simulation|firmata|shield]")
                     ("driver-config", value<string>(&driver_config_string)->default_value(""), "a configuration string specific to the driver")
+                    ("io", value<IoType>(&io_type)->default_value(IONONE), "the io driver to be used, one of [simulation|gpio|none]")
+                    ("io-config", value<string>(&io_config_string)->default_value(""), "a configuration string specific to the io driver")
+                    ("amount-override", value<float>(&amount_override)->default_value(1.0f), "an override to scale the amounts given in recipes")
                     ("tcp-port", value<int>(&tcp_port)->default_value(9002), "the port the web interface is listening at");
 
             options_description pump_config("PumpConfiguration");
@@ -165,10 +206,26 @@ int main(int argc, char* argv[]) {
         }
 
         {
+            IoDriverInterface* io_driver = NULL;
+            switch(io_type){
+                case IOSIMULATION:
+                    LOG(INFO)<< "The simulation mode for io is set!";
+                    io_driver = new IoDriverSimulation();
+                    break;
+                case IONONE:
+                    io_driver = new IoDriverNone();
+                    break;
+#ifndef NO_REALDRIVERS
+                case GPIO:
+                    io_driver = new IoDriverGpio();
+                    break;
+#endif
+            }
+
             PumpDriverInterface* pump_driver = NULL;
             switch(driver_type){
                 case SIMULATION:
-                    LOG(INFO)<< "The simulation mode is set!";
+                    LOG(INFO)<< "The simulation mode for pumps is set!";
                     pump_driver = new PumpDriverSimulation();
                     break;
 #ifndef NO_REALDRIVERS
@@ -181,11 +238,13 @@ int main(int argc, char* argv[]) {
 #endif
             }
 
+            bool io_driver_initialized = false;
             bool pump_driver_initialized = false;
             try{
                 pump_driver_initialized= pump_driver->Init(driver_config_string.c_str());
+                io_driver_initialized= io_driver->Init(io_config_string.c_str());
                 if(pump_driver_initialized) {
-                    PumpControl pump_control(pump_driver, pump_definitions);
+                    PumpControl pump_control(pump_driver, pump_definitions, io_driver, amount_override);
                     WebInterface web_interface(tcp_port, &pump_control);
 
                     while(!sig_term_got){
@@ -202,8 +261,18 @@ int main(int argc, char* argv[]) {
             if(pump_driver_initialized){
                 pump_driver->DeInit();
             }
+
+            if(io_driver_initialized){
+                io_driver->DeInit();
+            }
+
             delete pump_driver;
+            delete io_driver;
         }
+    }
+
+    if(sigint_installed){
+        sigaction(SIGINT, &so, NULL);
     }
 
     if(sigterm_installed){

@@ -1,0 +1,21 @@
+language: cpp
+addons:
+ apt:
+  sources:
+   - ubuntu-toolchain-r-test
+  packages:
+   - libboost-all-dev
+   - libssl-dev
+   - g++-6
+
+env:
+ - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
+
+before_install:
+ - eval "${MATRIX_EVAL}"
+ - cp pumpcontrol.settings.conf ~
+
+script:
+ - make ENCRYPTION=off
+ - ./build/pumpcontrol.out >/dev/null &
+ - ./test/test.sh

@@ -16,10 +16,11 @@ class PumpDriverShield: public PumpDriverInterface {
 
     private:
         static unsigned GetPinForPump(size_t pump_number);
+        static void ParseConfigString(const char* config_text);
 
         bool initialized_ = false;
 
-        static const unsigned pins_[];
+        static unsigned pins_[];
         static const size_t pump_count_;
 };
 

@@ -2,6 +2,7 @@
 #define PUMPCONTROL_H
 
 #include "pumpcontrolinterface.h"
+#include "iodriverinterface.h"
 #include "timeprogramrunner.h"
 #ifndef NO_ENCRYPTION
 #include "cryptobuffer.h"
@@ -14,11 +15,13 @@
 #include <mutex>
 #include <boost/bimap.hpp>
 
-class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback {
+class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback, public IoDriverCallback {
 
     public:
         PumpControl(PumpDriverInterface* pump_driver,
-                std::map<int, PumpDefinition> pump_configurations);
+                std::map<int, PumpDefinition> pump_configurations,
+                IoDriverInterface* io_driver,
+                float amount_override);
 
         virtual ~PumpControl();
 
@@ -36,6 +39,9 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void StartProgram(unsigned long product_id, const std::string& receipt_json_string);
         virtual void EnterServiceMode();
         virtual void LeaveServiceMode();
+        virtual void GetIoDesc(std::vector<IoDescription>& desc) const;
+        virtual bool GetValue(const std::string& name) const;
+        virtual void SetValue(const std::string& name, bool value);
 
         //TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgressUpdate(std::string id, int percent);
@@ -43,6 +49,9 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         virtual void TimeProgramRunnerProgramEnded(std::string id);
         virtual void SetFlow(size_t pump_number, float flow);
         virtual void SetAllPumpsOff();
+
+        //IoDriverCallback
+        virtual void NewInputState(const char* name, bool value);
 
         virtual void SetPumpControlState(PumpControlState state);
 
@@ -62,17 +71,22 @@ class PumpControl: public PumpControlInterface, public TimeProgramRunnerCallback
         void PumpDriverAmountWarning(int pump_number, int amount_left);
 
         PumpControlState pumpcontrol_state_ = PUMP_STATE_UNINITIALIZED;
+        std::recursive_mutex state_mutex_;
         PumpDriverInterface* pumpdriver_ = NULL;
         std::map<int, PumpDefinition> pump_definitions_;
 
+        IoDriverInterface* io_driver_;
+
         PumpControlCallback* callback_client_ = NULL;
-        std::mutex callback_client_mutex_;
+        std::recursive_mutex callback_client_mutex_;
 
         TimeProgramRunner* timeprogramrunner_ = NULL;
         TimeProgramRunner::TimeProgram timeprogram_;
 
         std::map<int, float> pump_amount_map_;
         std::map<int, FlowLog> flow_logs_;
+
+        float amount_override_;
 
         boost::bimap<int, std::string> pump_ingredients_bimap_;
         
